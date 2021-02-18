@@ -14,9 +14,9 @@ mod screen;
 // Then we can use as usual.  The screen module will have drawing utilities.
 use screen::Screen;
 // Collision will have our collision bodies and contact types
-mod collision;
+// mod collision;
 // Lazy glob imports
-use collision::*;
+// use collision::*;
 // Texture has our image loading and processing stuff
 mod texture;
 use texture::Texture;
@@ -42,8 +42,8 @@ struct GameState {
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
-const WIDTH: usize = 320;
-const HEIGHT: usize = 240;
+const WIDTH: usize = 1000;
+const HEIGHT: usize = 1000;
 const DEPTH: usize = 4;
 
 fn main() {
@@ -65,17 +65,20 @@ fn main() {
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
     let tex = Rc::new(Texture::with_file(Path::new("content/Sprite_sheet.png")));
+
+    let walk_frames = Rect::create_frames(2, 4, 90, 93);
+    let walk_timing = vec![5, 5, 5, 5];
+
+    let walk : Animation = Animation::new(walk_frames, walk_timing, true);
+    let walk_clone : Animation = walk.clone();
+
     let mut state = GameState {
         // initial game state...
-        animations: vec![],
+        animations: vec![walk],
         sprites: vec![Sprite::new(
             &tex,
-            Rect {
-                x: 0,
-                y: 16,
-                w: 16,
-                h: 16,
-            },
+            // Rc::new(walk_clone),
+            walk_clone,
             Vec2i(90, 200),
         )],
         textures: vec![tex],
@@ -167,6 +170,8 @@ fn update_game(state: &mut GameState, input: &WinitInputHelper, frame: usize) {
     if input.key_held(VirtualKeyCode::Down) {
         state.sprites[0].position.1 += 2;
     }
+
+    state.sprites[0].animation.tick_forward();
     // Update player position
 
     // Detect collisions: Generate contacts

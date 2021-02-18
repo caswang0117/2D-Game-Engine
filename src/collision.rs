@@ -261,7 +261,7 @@ fn restitute(statics: &[Wall], dynamics: &mut [Mobile], contacts: &mut [Contact]
     }
 }
 ​
-/**
+/***
 fn main() {
     let event_loop = EventLoop::new();
     let mut input = WinitInputHelper::new();
