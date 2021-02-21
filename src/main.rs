@@ -38,12 +38,15 @@ struct GameState {
     animations: Vec<Animation>,
     textures: Vec<Rc<Texture>>,
     sprites: Vec<Sprite>,
+    backgrounds: Vec<Rc<Texture>>,
+    ground: Rect,
+    obstacles: Vec<Rc<Obstacle>>,
 }
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
-const WIDTH: usize = 1000;
-const HEIGHT: usize = 1000;
+const WIDTH: usize = 800;
+const HEIGHT: usize = 800;
 const DEPTH: usize = 4;
 
 fn main() {
@@ -64,7 +67,9 @@ fn main() {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
-    let tex = Rc::new(Texture::with_file(Path::new("content/Sprite_sheet.png")));
+    let tex = Rc::new(Texture::with_file(Path::new("content/person.png")));
+    let land = Rc::new(Texture::with_file(Path::new("content/land.png")));
+    let space = Rc::new(Texture::with_file(Path::new("content/space.png")));
 
     let walk_frames = Rect::create_frames(2, 4, 90, 93);
     let walk_timing = vec![5, 5, 5, 5];

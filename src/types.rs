@@ -29,3 +29,10 @@ pub struct Vec2i(pub i32,pub i32);
 pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
 
 // Feel free to add impl blocks with convenience functions
+
+pub struct Obstacle {
+    pub image: Rc<Texture>,
+    pub rect: Rect, // on tilemap for collisions
+    pub frame: Rect, // on source image texture
+    pub destroyed: bool,
+}
