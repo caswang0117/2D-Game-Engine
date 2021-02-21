@@ -38,15 +38,16 @@ struct GameState {
     animations: Vec<Animation>,
     textures: Vec<Rc<Texture>>,
     sprites: Vec<Sprite>,
-    backgrounds: Vec<Rc<Texture>>,
+    backgrounds: Vec<Rc<Background>>,
+    curr_location: Rc<Background>
     ground: Rect,
     obstacles: Vec<Rc<Obstacle>>,
 }
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
-const WIDTH: usize = 800;
-const HEIGHT: usize = 800;
+const WIDTH: usize = 1000;
+const HEIGHT: usize = 1000;
 const DEPTH: usize = 4;
 
 fn main() {
@@ -67,12 +68,12 @@ fn main() {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
-    let tex = Rc::new(Texture::with_file(Path::new("content/person.png")));
+    let person = Rc::new(Texture::with_file(Path::new("content/Person-sprite.png")));
     let land = Rc::new(Texture::with_file(Path::new("content/land.png")));
     let space = Rc::new(Texture::with_file(Path::new("content/space.png")));
 
-    let walk_frames = Rect::create_frames(2, 4, 90, 93);
-    let walk_timing = vec![5, 5, 5, 5];
+    let walk_frames = Rect::create_frames(1, 4, 100, 100);
+    let walk_timing = vec![3, 3, 3, 3];
 
     let walk : Animation = Animation::new(walk_frames, walk_timing, true);
     let walk_clone : Animation = walk.clone();
@@ -87,6 +88,10 @@ fn main() {
             Vec2i(90, 200),
         )],
         textures: vec![tex],
+        background: vec![land, space],
+        bg_frame: Rect{ x:0, y: 0, h: 1000, w:1000},
+        ground: Rect{ x:0 , y:900 , h: 100, w: 1000 },
+        obstacles: vec![]
     };
     // How many frames have we simulated?
     let mut frame_count: usize = 0;
@@ -156,6 +161,7 @@ fn draw_game(state: &GameState, screen: &mut Screen) {
         Rgba(128, 0, 0, 255),
     );
     screen.line(Vec2i(0, 150), Vec2i(300, 200), Rgba(0, 128, 0, 255));
+    screen.bitblt()
     for s in state.sprites.iter() {
         screen.draw_sprite(s);
     }

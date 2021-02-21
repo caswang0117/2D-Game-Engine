@@ -3,9 +3,6 @@ use crate::types::{Rect, Vec2i};
 use std::rc::Rc;
 use crate::animation::Animation;
 
-// pub mod animation;
-// use animation::*; 
-
 pub struct Sprite {
     image: Rc<Texture>,
     // pub frame: Rect, // Maybe better to use a type that can't have a negative origin
