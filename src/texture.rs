@@ -4,8 +4,8 @@ use std::path::Path;
 
 pub struct Texture {
     image: Vec<u8>,
-    width: usize,
-    height: usize,
+    pub width: usize,
+    pub height: usize,
     depth: usize,
 }
 

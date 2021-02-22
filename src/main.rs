@@ -31,6 +31,12 @@ use sprite::*;
 mod types;
 use types::*;
 
+mod background;
+use background::*;
+
+mod obstacle;
+use obstacle::Obstacle;
+
 // Now this main module is just for the run-loop and rules processing.
 struct GameState {
     // What data do we need for this game?  Wall positions?
@@ -38,8 +44,8 @@ struct GameState {
     animations: Vec<Animation>,
     textures: Vec<Rc<Texture>>,
     sprites: Vec<Sprite>,
-    backgrounds: Vec<Rc<Background>>,
-    curr_location: Rc<Background>
+    backgrounds: Vec<Background>,
+    curr_location: usize,
     ground: Rect,
     obstacles: Vec<Rc<Obstacle>>,
 }
@@ -69,29 +75,42 @@ fn main() {
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
     let person = Rc::new(Texture::with_file(Path::new("content/Person-sprite.png")));
-    let land = Rc::new(Texture::with_file(Path::new("content/land.png")));
-    let space = Rc::new(Texture::with_file(Path::new("content/space.png")));
+    let land = Background::new(
+        &Rc::new(Texture::with_file(Path::new("content/land.png"))),
+        WIDTH,
+        HEIGHT,
+    );
+    let space = Background::new(
+        &Rc::new(Texture::with_file(Path::new("content/space.png"))),
+        WIDTH,
+        HEIGHT,
+    );
 
-    let walk_frames = Rect::create_frames(1, 4, 100, 100);
+    let walk_frames = Rect::create_frames(0, 4, 100, 100);
     let walk_timing = vec![3, 3, 3, 3];
 
-    let walk : Animation = Animation::new(walk_frames, walk_timing, true);
-    let walk_clone : Animation = walk.clone();
+    let walk: Animation = Animation::new(walk_frames, walk_timing, true);
+    let walk_clone: Animation = walk.clone();
 
     let mut state = GameState {
         // initial game state...
         animations: vec![walk],
         sprites: vec![Sprite::new(
-            &tex,
+            &person,
             // Rc::new(walk_clone),
             walk_clone,
             Vec2i(90, 200),
         )],
-        textures: vec![tex],
-        background: vec![land, space],
-        bg_frame: Rect{ x:0, y: 0, h: 1000, w:1000},
-        ground: Rect{ x:0 , y:900 , h: 100, w: 1000 },
-        obstacles: vec![]
+        textures: vec![person],
+        backgrounds: vec![land, space],
+        curr_location: 0,
+        ground: Rect {
+            x: 0,
+            y: 900,
+            h: 100,
+            w: 1000,
+        },
+        obstacles: vec![],
     };
     // How many frames have we simulated?
     let mut frame_count: usize = 0;
@@ -151,17 +170,7 @@ fn main() {
 fn draw_game(state: &GameState, screen: &mut Screen) {
     // Call screen's drawing methods to render the game state
     screen.clear(Rgba(80, 80, 80, 255));
-    screen.rect(
-        Rect {
-            x: 100,
-            y: 100,
-            w: 32,
-            h: 64,
-        },
-        Rgba(128, 0, 0, 255),
-    );
-    screen.line(Vec2i(0, 150), Vec2i(300, 200), Rgba(0, 128, 0, 255));
-    screen.bitblt()
+    screen.draw_background(&state.backgrounds[state.curr_location]);
     for s in state.sprites.iter() {
         screen.draw_sprite(s);
     }
@@ -183,6 +192,8 @@ fn update_game(state: &mut GameState, input: &WinitInputHelper, frame: usize) {
     }
 
     state.sprites[0].animation.tick_forward();
+
+    state.backgrounds[state.curr_location].tick_right(WIDTH);
     // Update player position
 
     // Detect collisions: Generate contacts
