@@ -37,6 +37,9 @@ use background::*;
 mod obstacle;
 use obstacle::Obstacle;
 
+mod tiles;
+use tiles::*;
+
 // Now this main module is just for the run-loop and rules processing.
 struct GameState {
     // What data do we need for this game?  Wall positions?
@@ -48,13 +51,53 @@ struct GameState {
     curr_location: usize,
     ground: Rect,
     obstacles: Vec<Rc<Obstacle>>,
+    tilemaps: Vec<Rc<Tilemap>>,
+    camera_position: Vec2i,
+    // right_bound: usize,
+    // left_bound: usize,
+    // top_bound: usize,
+    // bottom_bound: usize,
 }
+
+// impl GameState {
+//     pub fn new(
+//         animations: Vec<Animation>,
+//         textures: Vec<Rc<Texture>>,
+//         sprites: Vec<Sprite>,
+//         backgrounds: Vec<Background>,
+//         curr_location: usize,
+//         ground: Rect,
+//         obstacles: Vec<Rc<Obstacle>>,
+//         tilemaps: Vec<Rc<Tilemap>>,
+//         camera_position: Vec2i,
+//     ) -> Self {
+//         let left_bound = tilemaps[0]
+//         Self {
+//             animations: animations,
+//             textures: textures,
+//             sprites: sprites,
+//             backgrounds: backgrounds,
+//             curr_location: curr_location,
+//             ground: ground,
+//             obstacles: obstacles,
+//             tilemaps: tilemaps,
+//             camera_position: camera_position,
+//             left_bound:
+//         }
+//     }
+// }
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
-const WIDTH: usize = 1000;
-const HEIGHT: usize = 1000;
+const WIDTH: usize = 128;
+const HEIGHT: usize = 128;
 const DEPTH: usize = 4;
+const PLAYER_WIDTH: u16 = 100;
+const PLAYER_HEIGHT: u16 = 100;
+const RIGHT_BOUND: usize = 612;
+const LEFT_BOUND: usize = 0;
+const TOP_BOUND: usize = 0;
+const BOTTOM_BOUND: usize = 128;
 
 fn main() {
     let event_loop = EventLoop::new();
@@ -75,6 +118,56 @@ fn main() {
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
     let person = Rc::new(Texture::with_file(Path::new("content/Person-sprite.png")));
+    let tex = Rc::new(Texture::with_file(Path::new("content/tileset.png")));
+    let tileset = Rc::new(Tileset::new(
+        vec![
+            Tile { solid: false }, // blue
+            Tile { solid: true },  // cloud
+        ],
+        &tex,
+    ));
+    let map1 = Tilemap::new(
+        Vec2i(0, 0),
+        (8, 8),
+        &tileset,
+        vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+            0, 1, 0, 0, 1, 0,
+        ],
+    );
+
+    let map2 = Tilemap::new(
+        Vec2i(128, 0),
+        (8, 8),
+        &tileset,
+        vec![
+            0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0,
+            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 1, 0, 0,
+        ],
+    );
+
+    let map3 = Tilemap::new(
+        Vec2i(256, 0),
+        (8, 8),
+        &tileset,
+        vec![
+            0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0,
+            0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0,
+            0, 1, 1, 0, 0, 1,
+        ],
+    );
+    let map4 = Tilemap::new(
+        Vec2i(384, 0),
+        (8, 8),
+        &tileset,
+        vec![
+            0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+            0, 0, 0, 1, 0, 0,
+        ],
+    );
     let land = Background::new(
         &Rc::new(Texture::with_file(Path::new("content/land.png"))),
         WIDTH,
@@ -86,7 +179,7 @@ fn main() {
         HEIGHT,
     );
 
-    let walk_frames = Rect::create_frames(0, 4, 100, 100);
+    let walk_frames = Rect::create_frames(0, 4, PLAYER_WIDTH, PLAYER_HEIGHT);
     let walk_timing = vec![3, 3, 3, 3];
 
     let walk: Animation = Animation::new(walk_frames, walk_timing, true);
@@ -99,7 +192,7 @@ fn main() {
             &person,
             // Rc::new(walk_clone),
             walk_clone,
-            Vec2i(90, 200),
+            Vec2i(0, 0),
         )],
         textures: vec![person],
         backgrounds: vec![land, space],
@@ -111,6 +204,8 @@ fn main() {
             w: 1000,
         },
         obstacles: vec![],
+        tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
+        camera_position: Vec2i(0, 0),
     };
     // How many frames have we simulated?
     let mut frame_count: usize = 0;
@@ -123,10 +218,17 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
-            let mut screen = Screen::wrap(pixels.get_frame(), WIDTH, HEIGHT, DEPTH);
+            let mut screen = Screen::wrap(
+                pixels.get_frame(),
+                WIDTH,
+                HEIGHT,
+                DEPTH,
+                state.camera_position,
+            );
+            // let mut screen = Screen::wrap(pixels.get_frame(), WIDTH, HEIGHT, DEPTH);
             screen.clear(Rgba(0, 0, 0, 0));
 
-            draw_game(&state, &mut screen);
+            draw_game(&mut state, &mut screen);
 
             // Flip buffers
             if pixels.render().is_err() {
@@ -167,10 +269,15 @@ fn main() {
     });
 }
 
-fn draw_game(state: &GameState, screen: &mut Screen) {
+fn draw_game(state: &mut GameState, screen: &mut Screen) {
     // Call screen's drawing methods to render the game state
     screen.clear(Rgba(80, 80, 80, 255));
-    screen.draw_background(&state.backgrounds[state.curr_location]);
+    // screen.draw_background(&state.backgrounds[state.curr_location]);
+    for map in tile_map_at(state, screen) {
+        map.draw(screen)
+    }
+    let sprite_pos = state.sprites[0].position;
+    // state.tilemaps.draw(screen);
     for s in state.sprites.iter() {
         screen.draw_sprite(s);
     }
@@ -192,8 +299,32 @@ fn update_game(state: &mut GameState, input: &WinitInputHelper, frame: usize) {
     }
 
     state.sprites[0].animation.tick_forward();
-
     state.backgrounds[state.curr_location].tick_right(WIDTH);
+
+    // right side
+    if state.sprites[0].position.0 + PLAYER_WIDTH as i32
+        >= state.camera_position.0 + WIDTH as i32 - 5
+    {
+        state.camera_position.0 += 2;
+    }
+
+    // left side
+    if state.sprites[0].position.0 <= state.camera_position.0 + 5 {
+        state.camera_position.0 -= 2;
+    }
+
+    // top
+    if state.sprites[0].position.1 <= state.camera_position.1 + 5 {
+        state.camera_position.1 -= 2;
+    }
+
+    // bottom
+    if state.sprites[0].position.1 + PLAYER_HEIGHT as i32
+        >= state.camera_position.1 + HEIGHT as i32 - 5
+    {
+        state.camera_position.1 += 2;
+    }
+
     // Update player position
 
     // Detect collisions: Generate contacts
@@ -201,4 +332,25 @@ fn update_game(state: &mut GameState, input: &WinitInputHelper, frame: usize) {
     // Handle collisions: Apply restitution impulses.
 
     // Update game rules: What happens when the player touches things?
+}
+
+fn tile_map_at(state: &mut GameState, screen: &mut Screen) -> Vec<Rc<Tilemap>> {
+    let screen_pos_l = screen.size();
+    let screen_pos_r = (
+        screen_pos_l.0 + PLAYER_WIDTH as usize,
+        screen_pos_l.1 + PLAYER_HEIGHT as usize,
+    );
+
+    let mut show_tilemaps = vec![];
+    let mut x_pos_so_far = 0;
+    for (i, map) in state.tilemaps.iter().enumerate() {
+        x_pos_so_far += map.size().0 * TILE_SZ;
+        if x_pos_so_far >= screen_pos_l.0 as usize {
+            show_tilemaps.push(Rc::clone(map));
+            if x_pos_so_far < screen_pos_r.0 as usize && i + 1 < state.tilemaps.len() {
+                show_tilemaps.push(Rc::clone(&state.tilemaps[i + 1]))
+            }
+        }
+    }
+    show_tilemaps
 }
