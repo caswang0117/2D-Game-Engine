@@ -158,7 +158,7 @@
 use crate::texture::Texture;
 use crate::types::{Rect, Rgba, Vec2i};
 pub struct Screen<'fb> {
-    framebuffer: &'fb mut [u8],
+    pub framebuffer: &'fb mut [u8],
     width: usize,
     height: usize,
     depth: usize,
