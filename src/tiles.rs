@@ -4,12 +4,13 @@ use crate::Texture;
 use crate::Vec2i;
 use std::rc::Rc;
 
-pub const TILE_SZ: usize = 16;
+pub const TILE_SZ: usize = 32;
 /// A graphical tile, we'll implement Copy since it's tiny
 #[derive(Clone, Copy)]
 pub struct Tile {
     pub solid: bool, // ... any extra data like collision flags or other properties
 }
+
 /// A set of tiles used in multiple Tilemaps
 pub struct Tileset {
     // Tile size is a constant, so we can find the tile in the texture using math

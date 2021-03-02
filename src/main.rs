@@ -52,7 +52,6 @@ struct GameState {
     sprites: Vec<Sprite>,
     backgrounds: Vec<Background>,
     curr_location: usize,
-    ground: Rect,
     obstacles: Vec<Obstacle>,
     tilemaps: Vec<Rc<Tilemap>>,
     camera_position: Vec2i,
@@ -92,15 +91,15 @@ struct GameState {
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
-const WIDTH: usize = 1000;
-const HEIGHT: usize = 1000;
+const WIDTH: usize = 512;
+const HEIGHT: usize = 256;
 const DEPTH: usize = 4;
 const PLAYER_WIDTH: u16 = 100;
 const PLAYER_HEIGHT: u16 = 100;
 const RIGHT_BOUND: usize = 612;
 const LEFT_BOUND: usize = 0;
 const TOP_BOUND: usize = 0;
-const BOTTOM_BOUND: usize = 128;
+const BOTTOM_BOUND: usize = 512;
 
 const CLEAR_COL: Rgba = Rgba(32, 32, 64, 255);
 const WALL_COL: Rgba = Rgba(200, 200, 200, 255);
@@ -135,48 +134,56 @@ fn main() {
     ));
     let map1 = Tilemap::new(
         Vec2i(0, 0),
-        (8, 8),
+        (16, 8),
         &tileset,
         vec![
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-            0, 1, 0, 0, 1, 0,
+            0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
         ],
     );
 
     let map2 = Tilemap::new(
-        Vec2i(128, 0),
-        (8, 8),
+        Vec2i(512, 0),
+        (16, 8),
         &tileset,
         vec![
-            0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0,
-            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 1, 0, 0,
+            0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
+            0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0,
+            1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0,
         ],
     );
 
     let map3 = Tilemap::new(
-        Vec2i(256, 0),
-        (8, 8),
+        Vec2i(1024, 0),
+        (16, 8),
         &tileset,
         vec![
             0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0,
-            0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0,
-            0, 1, 1, 0, 0, 1,
+            0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0,
+            1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1,
         ],
     );
     let map4 = Tilemap::new(
-        Vec2i(384, 0),
-        (8, 8),
+        Vec2i(1536, 0),
+        (16, 8),
         &tileset,
         vec![
             0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
-            0, 0, 0, 1, 0, 0,
+            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1,
+            1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
         ],
     );
     let land = Background::new(
-        &Rc::new(Texture::with_file(Path::new("content/land.png"))),
+        &Rc::new(Texture::with_file(Path::new("content/simple_bg.jpg"))),
         WIDTH,
         HEIGHT,
     );
@@ -213,9 +220,9 @@ fn main() {
         frame: None,
         rect: Rect {
             x: 0,
-            y: 900,
-            h: 100,
-            w: 1000,
+            y: 200,
+            h: 56,
+            w: 2048,
         },
         destroyed: false,
     };
@@ -228,12 +235,6 @@ fn main() {
         textures: vec![person],
         backgrounds: vec![land, space],
         curr_location: 0,
-        ground: Rect {
-            x: 0,
-            y: 900,
-            h: 100,
-            w: 1000,
-        },
         obstacles: vec![ground],
         tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
         camera_position: Vec2i(0, 0),
@@ -305,19 +306,17 @@ fn main() {
 fn draw_game(state: &mut GameState, screen: &mut Screen) {
     // Call screen's drawing methods to render the game state
     screen.clear(Rgba(80, 80, 80, 255));
-    screen.draw_background(&state.backgrounds[state.curr_location]);
-    // for map in tile_map_at(state, screen) {
-    //     map.draw(screen)
-    // }
-    // state.tilemaps.draw(screen);
+    // screen.draw_background(&state.backgrounds[state.curr_location]);
+    for map in tile_map_at(state, screen) {
+        map.draw(screen)
+    }
+
     for s in state.sprites.iter() {
         screen.draw_sprite(s);
     }
     for o in state.obstacles.iter() {
         screen.draw_obstacle(o);
     }
-
-    screen.rect(state.ground, WALL_COL);
 }
 
 fn update_game(
