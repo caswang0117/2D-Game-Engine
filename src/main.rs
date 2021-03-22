@@ -183,7 +183,8 @@ fn main() {
         ],
     );
     let land = Background::new(
-        &Rc::new(Texture::with_file(Path::new("content/simple_bg.jpg"))),
+        &Rc::new(Texture::with_file(Path::new("content/land.png"))),
+        
         WIDTH,
         HEIGHT,
     );
@@ -194,7 +195,7 @@ fn main() {
     );
 
     let walk_frames = Rect::create_frames(0, 4, PLAYER_WIDTH, PLAYER_HEIGHT);
-    let walk_timing = vec![3, 3, 3, 3];
+    let walk_timing = vec![5, 5, 5, 5];
 
     let walk = Rc::new(Animation::new(walk_frames, walk_timing, true));
     let animations = vec![walk];
@@ -217,13 +218,13 @@ fn main() {
     // let player_y = player.position.1;
     let ground = Obstacle {
         image: None,
-        frame: None,
-        rect: Rect {
+        tile_id: None,
+        rect: Some(Rect {
             x: 0,
             y: 200,
             h: 56,
             w: 2048,
-        },
+        }),
         destroyed: false,
     };
     let sprites = vec![player];
