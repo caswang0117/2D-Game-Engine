@@ -27,6 +27,8 @@ use texture::Texture;
 // Animation will define our animation datatypes and blending or whatever
 mod animation;
 use animation::Animation;
+
+mod audio;
 // Sprite will define our movable sprites
 mod sprite;
 // Lazy glob import, see the extension trait business later for why
@@ -188,11 +190,11 @@ fn main() {
             0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
         ],
     );
-    let land = Background::new(
-        &Rc::new(Texture::with_file(Path::new("content/land.png"))),
-        WIDTH,
-        HEIGHT,
-    );
+    // let land = Background::new(
+    //     &Rc::new(Texture::with_file(Path::new("content/simple_bg.jpg"))),
+    //     WIDTH,
+    //     HEIGHT,
+    // );
     let space = Background::new(
         &Rc::new(Texture::with_file(Path::new("content/space.png"))),
         WIDTH,
@@ -223,6 +225,7 @@ fn main() {
     // let player_y = player.position.1;
     let ground = Obstacle {
         image: None,
+        frame: None,
         tile_id: None,
         rect: Some(Rect {
             x: 0,
@@ -242,7 +245,8 @@ fn main() {
         animations: animations,
         sprites: sprites,
         textures: vec![person],
-        backgrounds: vec![land, space],
+        // backgrounds: vec![land, space],
+        backgrounds: vec![space],
         curr_location: 0,
         obstacles: vec![ground],
         tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
