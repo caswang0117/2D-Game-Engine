@@ -1,6 +1,7 @@
 use crate::animation::AnimationState;
 use crate::collision::Contact;
 use crate::collision::Mobile;
+use fontdue::Font;
 use pixels::{Pixels, SurfaceTexture};
 use std::path::Path;
 use std::rc::Rc;
@@ -34,6 +35,9 @@ use sprite::*;
 mod types;
 use types::*;
 
+mod text;
+use text::*;
+
 mod background;
 use background::*;
 
@@ -55,6 +59,7 @@ struct GameState {
     obstacles: Vec<Obstacle>,
     tilemaps: Vec<Rc<Tilemap>>,
     camera_position: Vec2i,
+    font: MyFont,
     // right_bound: usize,
     // left_bound: usize,
     // top_bound: usize,
@@ -100,6 +105,7 @@ const RIGHT_BOUND: usize = 612;
 const LEFT_BOUND: usize = 0;
 const TOP_BOUND: usize = 0;
 const BOTTOM_BOUND: usize = 512;
+const FONT_SIZE: f32 = 20.0;
 
 const CLEAR_COL: Rgba = Rgba(32, 32, 64, 255);
 const WALL_COL: Rgba = Rgba(200, 200, 200, 255);
@@ -184,7 +190,6 @@ fn main() {
     );
     let land = Background::new(
         &Rc::new(Texture::with_file(Path::new("content/land.png"))),
-        
         WIDTH,
         HEIGHT,
     );
@@ -229,6 +234,9 @@ fn main() {
     };
     let sprites = vec![player];
 
+    let font = MyFont::new(Path::new("content/Andale Mono.ttf"), 20.0);
+    // let startGame = font.rasterize("Start Game");
+
     let mut state = GameState {
         // initial game state...
         animations: animations,
@@ -239,6 +247,7 @@ fn main() {
         obstacles: vec![ground],
         tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
         camera_position: Vec2i(0, 0),
+        font: font,
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -311,6 +320,9 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
     for map in tile_map_at(state, screen) {
         map.draw(screen)
     }
+
+    let startGame = state.font.rasterize("S");
+    screen.draw_text(&startGame, Vec2i(100, 100));
 
     for s in state.sprites.iter() {
         screen.draw_sprite(s);
