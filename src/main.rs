@@ -1,7 +1,6 @@
 use crate::animation::AnimationState;
 use crate::collision::Contact;
 use crate::collision::Mobile;
-use fontdue::Font;
 use pixels::{Pixels, SurfaceTexture};
 use std::path::Path;
 use std::rc::Rc;
@@ -49,6 +48,13 @@ use obstacle::*;
 mod tiles;
 use tiles::*;
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Mode {
+    TitleScreen,
+    GamePlay,
+    EndGame,
+}
+
 // Now this main module is just for the run-loop and rules processing.
 struct GameState {
     // What data do we need for this game?  Wall positions?
@@ -61,7 +67,7 @@ struct GameState {
     obstacles: Vec<Obstacle>,
     tilemaps: Vec<Rc<Tilemap>>,
     camera_position: Vec2i,
-    font: MyFont,
+    mode: Mode,
     // right_bound: usize,
     // left_bound: usize,
     // top_bound: usize,
@@ -132,11 +138,17 @@ fn main() {
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
     let person = Rc::new(Texture::with_file(Path::new("content/Person-sprite.png")));
-    let tex = Rc::new(Texture::with_file(Path::new("content/tileset.png")));
+    let tex = Rc::new(Texture::with_file(Path::new("content/spacetiles.png")));
     let tileset = Rc::new(Tileset::new(
         vec![
-            Tile { solid: false }, // blue
-            Tile { solid: true },  // cloud
+            Tile { solid: false }, // dark
+            Tile { solid: false }, // star
+            Tile { solid: false }, // moon
+            Tile { solid: false }, // planet TL
+            Tile { solid: false }, // planet TR
+            Tile { solid: false }, // planet BL
+            Tile { solid: false }, // planet BR
+            Tile { solid: true },  // meteor
         ],
         &tex,
     ));
@@ -145,11 +157,11 @@ fn main() {
         (16, 8),
         &tileset,
         vec![
-            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-            0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1,
-            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-            0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3, 4,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
         ],
     );
 
@@ -158,11 +170,11 @@ fn main() {
         (16, 8),
         &tileset,
         vec![
-            0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
-            0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0,
-            1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            5, 6, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
         ],
     );
 
@@ -171,11 +183,11 @@ fn main() {
         (16, 8),
         &tileset,
         vec![
-            0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0,
-            0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0,
-            1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0,
-            0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0,
-            0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1,
+            1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3,
+            4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
         ],
     );
     let map4 = Tilemap::new(
@@ -183,11 +195,11 @@ fn main() {
         (16, 8),
         &tileset,
         vec![
-            0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1,
-            1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0,
-            0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0,
-            0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 1, 0, 0, 0, 0, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ],
     );
     // let land = Background::new(
@@ -237,9 +249,6 @@ fn main() {
     };
     let sprites = vec![player];
 
-    let font = MyFont::new(Path::new("content/Andale Mono.ttf"), 20.0);
-    // let startGame = font.rasterize("Start Game");
-
     let mut state = GameState {
         // initial game state...
         animations: animations,
@@ -251,7 +260,7 @@ fn main() {
         obstacles: vec![ground],
         tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
         camera_position: Vec2i(0, 0),
-        font: font,
+        mode: Mode::TitleScreen,
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -320,19 +329,49 @@ fn main() {
 fn draw_game(state: &mut GameState, screen: &mut Screen) {
     // Call screen's drawing methods to render the game state
     screen.clear(Rgba(80, 80, 80, 255));
-    // screen.draw_background(&state.backgrounds[state.curr_location]);
-    for map in tile_map_at(state, screen) {
-        map.draw(screen)
-    }
 
-    let startGame = state.font.rasterize("S");
-    screen.draw_text(&startGame, Vec2i(100, 100));
-
-    for s in state.sprites.iter() {
-        screen.draw_sprite(s);
-    }
-    for o in state.obstacles.iter() {
-        screen.draw_obstacle(o);
+    match state.mode {
+        Mode::TitleScreen => screen.bitblt(
+            &state.textures[2],
+            Rect {
+                x: 0,
+                y: 0,
+                w: 512,
+                h: 512,
+            },
+            Vec2i(0, 0),
+        ),
+        Mode::GamePlay => {
+            // levels[state.level].0.draw(screen);
+            // for ((pos, tex), anim) in state
+            //     .positions
+            //     .iter()
+            //     .zip(state.textures.iter())
+            //     .zip(state.anim_state.iter())
+            // {
+            //     screen.bitblt(tex, anim.frame(), *pos);
+            // }
+            // screen.draw_background(&state.backgrounds[state.curr_location]);
+            for map in tile_map_at(state, screen) {
+                map.draw(screen)
+            }
+            for s in state.sprites.iter() {
+                screen.draw_sprite(s);
+            }
+            for o in state.obstacles.iter() {
+                screen.draw_obstacle(o);
+            }
+        }
+        Mode::EndGame => screen.bitblt(
+            &state.textures[3],
+            Rect {
+                x: 0,
+                y: 0,
+                w: 512,
+                h: 512,
+            },
+            Vec2i(0, 0),
+        ),
     }
 }
 
@@ -342,55 +381,105 @@ fn update_game(
     input: &WinitInputHelper,
     frame: usize,
 ) {
-    // Player control goes here
-    if input.key_held(VirtualKeyCode::Right) {
-        state.sprites[0].rect.x += 2;
+    match state.mode {
+        Mode::TitleScreen => {
+            if input.key_held(VirtualKeyCode::Return) {
+                state.mode = Mode::GamePlay
+            }
+        }
+        Mode::GamePlay => {
+            // Player control goes here
+            if input.key_held(VirtualKeyCode::Right) {
+                state.sprites[0].rect.x += 2;
+            }
+            if input.key_held(VirtualKeyCode::Left) {
+                state.sprites[0].rect.x -= 2;
+            }
+            if input.key_held(VirtualKeyCode::Up) {
+                state.sprites[0].rect.y -= 2;
+            }
+            if input.key_held(VirtualKeyCode::Down) {
+                state.sprites[0].rect.y += 2;
+            }
+
+            state.sprites[0].tick_forward();
+            state.backgrounds[state.curr_location].tick_right(WIDTH);
+
+            // right side
+            if state.sprites[0].rect.x + PLAYER_WIDTH as i32
+                >= state.camera_position.0 + WIDTH as i32 - 5
+            {
+                state.camera_position.0 += 2;
+            }
+
+            // left side
+            if state.sprites[0].rect.x <= state.camera_position.0 + 5 {
+                state.camera_position.0 -= 2;
+            }
+
+            // top
+            if state.sprites[0].rect.y <= state.camera_position.1 + 5 {
+                state.camera_position.1 -= 2;
+            }
+
+            // bottom
+            if state.sprites[0].rect.y + PLAYER_HEIGHT as i32
+                >= state.camera_position.1 + HEIGHT as i32 - 5
+            {
+                state.camera_position.1 += 2;
+            }
+
+            // Update player position
+
+            // Detect collisions: Generate contacts
+            contacts.clear();
+            Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
+            println!("{:?}", contacts);
+
+            // Handle collisions: Apply restitution impulses.
+            Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
+
+            // Update game rules: What happens when the player touches things?
+
+            // Player control goes here
+            // if input.key_held(VirtualKeyCode::Right) {
+            //     state.velocities[0].0 = 2;
+            // }
+            // if input.key_held(VirtualKeyCode::Left) {
+            //     state.velocities[0].0 = -2;
+            // }
+            // if input.key_held(VirtualKeyCode::Up) {
+            //     state.velocities[0].1 = -2;
+            // }
+            // if input.key_held(VirtualKeyCode::Down) {
+            //     state.velocities[0].1 = 2;
+            // }
+            // // Determine enemy velocity
+
+            // // Update all entities' positions
+            // for (posn, vel) in state.positions.iter_mut().zip(state.velocities.iter()) {
+            //     posn.0 += vel.0;
+            //     posn.1 += vel.1;
+            // }
+
+            // // Detect collisions: Convert positions and sizes to collision bodies, generate contacts
+            // if Collision::gather_contacts(&state.positions, &state.sizes) {
+            //     state.mode = Mode::EndGame;
+            // }
+            // Handle collisions: Apply restitution impulses.
+
+            // Update game rules: What happens when the player touches things?  When enemies touch walls?  Etc.
+
+            // Maybe scroll the camera or change level
+        }
+        Mode::EndGame => {
+            if input.key_held(VirtualKeyCode::R) {
+                //     state.positions[0] = Vec2i(levels[0].1[0].1 * 16, levels[0].1[0].2 * 16);
+                //     state.velocities[0] = Vec2i(0, 0);
+                state.mode = Mode::GamePlay
+            }
+        }
     }
-    if input.key_held(VirtualKeyCode::Left) {
-        state.sprites[0].rect.x -= 2;
-    }
-    if input.key_held(VirtualKeyCode::Up) {
-        state.sprites[0].rect.y -= 2;
-    }
-    if input.key_held(VirtualKeyCode::Down) {
-        state.sprites[0].rect.y += 2;
-    }
-
-    state.sprites[0].tick_forward();
-    state.backgrounds[state.curr_location].tick_right(WIDTH);
-
-    // right side
-    if state.sprites[0].rect.x + PLAYER_WIDTH as i32 >= state.camera_position.0 + WIDTH as i32 - 5 {
-        state.camera_position.0 += 2;
-    }
-
-    // left side
-    if state.sprites[0].rect.x <= state.camera_position.0 + 5 {
-        state.camera_position.0 -= 2;
-    }
-
-    // top
-    if state.sprites[0].rect.y <= state.camera_position.1 + 5 {
-        state.camera_position.1 -= 2;
-    }
-
-    // bottom
-    if state.sprites[0].rect.y + PLAYER_HEIGHT as i32 >= state.camera_position.1 + HEIGHT as i32 - 5
-    {
-        state.camera_position.1 += 2;
-    }
-
-    // Update player position
-
-    // Detect collisions: Generate contacts
-    contacts.clear();
-    Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
-    println!("{:?}", contacts);
-
-    // Handle collisions: Apply restitution impulses.
-    Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
-
-    // Update game rules: What happens when the player touches things?
 }
 
 fn tile_map_at(state: &mut GameState, screen: &mut Screen) -> Vec<Rc<Tilemap>> {
