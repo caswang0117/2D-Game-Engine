@@ -87,7 +87,7 @@ impl Collision {
         // collide mobiles against walls
         for (ai, a) in dynamics.iter().enumerate() {
             for (bi, b) in statics.iter().enumerate() {
-                let displacement = Collision::rect_displacement(a.rect, b.rect);
+                let displacement = Collision::rect_displacement(a.rect, b.rect.unwrap());
                 if let Some(disp) = displacement {
                     into.push(Contact {
                         a: ColliderID::Dynamic(ai),
@@ -216,7 +216,7 @@ impl Collision {
                             // restituted.insert(contact.a, dynamics[ai]);
                             restituted.insert(contact.a, ColliderID::Dynamic(ai));
                         } else if let Some(disp) =
-                            Collision::rect_displacement(dynamics[ai].rect, statics[bi].rect)
+                            Collision::rect_displacement(dynamics[ai].rect, statics[bi].rect.unwrap())
                         {
                             contact.mtv = (disp.0, disp.1);
                             contact.side_a = disp.2;

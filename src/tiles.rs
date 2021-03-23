@@ -61,7 +61,7 @@ impl Tileset {
 
 /// An actual tilemap
 pub struct Tilemap {
-    /// Where the tilemap is in space, use your favorite number type here
+    /// Whce the tilemap is in space, use your favorite number type here
     pub position: Vec2i,
     /// How big it is
     dims: (usize, usize),
