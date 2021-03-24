@@ -1,7 +1,8 @@
 use crate::Rect;
 use crate::Screen;
 use crate::Texture;
-use crate::Vec2i;
+use crate::Vec2f;
+use rand::distributions::{Bernoulli, Distribution};
 use std::rc::Rc;
 
 pub const TILE_SZ: usize = 32;
@@ -22,7 +23,7 @@ pub struct Tileset {
 }
 /// Indices into a Tileset
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct TileID(usize);
+pub struct TileID(pub usize);
 
 /// Grab a tile with a given ID
 impl std::ops::Index<TileID> for Tileset {
@@ -62,7 +63,7 @@ impl Tileset {
 /// An actual tilemap
 pub struct Tilemap {
     /// Whce the tilemap is in space, use your favorite number type here
-    pub position: Vec2i,
+    pub position: Vec2f,
     /// How big it is
     dims: (usize, usize),
     /// Which tileset is used for this tilemap
@@ -73,7 +74,7 @@ pub struct Tilemap {
 
 impl Tilemap {
     pub fn new(
-        position: Vec2i,
+        position: Vec2f,
         dims: (usize, usize),
         tileset: &Rc<Tileset>,
         map: Vec<usize>,
@@ -91,18 +92,39 @@ impl Tilemap {
         }
     }
 
-    pub fn tile_id_at(&self, Vec2i(x, y): Vec2i) -> TileID {
+    pub fn generate_rand_map_2(
+        p: f32,
+        position: Vec2f,
+        dims: (usize, usize),
+        t1: TileID,
+        t2: TileID,
+    ) -> Vec<usize> {
+        let m = Bernoulli::new(p as f64).unwrap();
+        let mut map = vec![];
+
+        for _i in 0..dims.0 * dims.1 {
+            let v = m.sample(&mut rand::thread_rng());
+            if v {
+                map.push(t1.0);
+            } else {
+                map.push(t2.0);
+            }
+        }
+        map
+    }
+
+    pub fn tile_id_at(&self, Vec2f(x, y): Vec2f) -> TileID {
         // Translate into map coordinates
-        let x = (x - self.position.0) / TILE_SZ as i32; // gets into world coordinates in frame of tile map
-        let y = (y - self.position.1) / TILE_SZ as i32;
+        let x = (x - self.position.0) / TILE_SZ as f32; // gets into world coordinates in frame of tile map
+        let y = (y - self.position.1) / TILE_SZ as f32;
         assert!(
-            x >= 0 && x < self.dims.0 as i32,
+            x >= 0.0 && x < self.dims.0 as f32,
             "Tile X coordinate {} out of bounds {}",
             x,
             self.dims.0
         );
         assert!(
-            y >= 0 && y < self.dims.1 as i32,
+            y >= 0.0 && y < self.dims.1 as f32,
             "Tile Y coordinate {} out of bounds {}",
             y,
             self.dims.1
@@ -114,11 +136,10 @@ impl Tilemap {
         self.dims
     }
 
-    pub fn tile_at(&self, posn: Vec2i) -> Tile {
+    pub fn tile_at(&self, posn: Vec2f) -> Tile {
         self.tileset[self.tile_id_at(posn)]
     }
 
-    /// Draws self onto `Screen`
     pub fn draw(&self, screen: &mut Screen) {
         let Rect {
             x: sx,
@@ -126,26 +147,37 @@ impl Tilemap {
             w: sw,
             h: sh,
         } = screen.bounds();
-        let left = ((sx - self.position.0) / TILE_SZ as i32)
-            .max(0)
-            .min(self.dims.0 as i32 - 1) as usize;
-        let right = ((sx + (sw as i32) - self.position.0) / TILE_SZ as i32)
-            .max(0)
-            .min(self.dims.0 as i32 - 1) as usize;
-        let top = ((sy - self.position.1) / TILE_SZ as i32)
-            .max(0)
-            .min(self.dims.1 as i32 - 1) as usize;
-        let bot = ((sy + (sh as i32) - self.position.1) / TILE_SZ as i32)
-            .max(0)
-            .min(self.dims.1 as i32 - 1) as usize;
-        for (y, row) in (top..=bot)
-            .zip(self.map[(top * self.dims.0)..=(bot * self.dims.0)].chunks_exact(self.dims.0))
+        // We'll draw from the topmost/leftmost visible tile to the bottommost/rightmost visible tile.
+        // The camera combined with out position and size tell us what's visible.
+        // leftmost tile: get camera.x into our frame of reference, then divide down to tile units
+        // Note that it's also forced inside of 0..self.size.0
+        let left = ((sx as f32 - self.position.0) / TILE_SZ as f32)
+            .max(0.0)
+            .min(self.dims.0 as f32) as usize;
+        // rightmost tile: same deal, but with screen.x + screen.w plus a little padding to be sure we draw the rightmost tile even if it's a bit off screen.
+        let right = ((sx as f32 + ((sw + TILE_SZ as u16) as f32) - self.position.0)
+            / TILE_SZ as f32)
+            .max(0.0)
+            .min(self.dims.0 as f32) as usize;
+        // ditto top and bot
+        let top = ((sy as f32 - self.position.1) / TILE_SZ as f32)
+            .max(0.0)
+            .min(self.dims.1 as f32) as usize;
+        let bot = ((sy as f32 + ((sh + TILE_SZ as u16) as f32) - self.position.1) / TILE_SZ as f32)
+            .max(0.0)
+            .min(self.dims.1 as f32) as usize;
+        // Now draw the tiles we need to draw where we need to draw them.
+        // Note that we're zipping up the row index (y) with a slice of the map grid containing the necessary rows so we can avoid making a bounds check for each tile.
+        for (y, row) in (top..bot)
+            .zip(self.map[(top * self.dims.0)..(bot * self.dims.0)].chunks_exact(self.dims.0))
         {
-            let ypx = (y * TILE_SZ) as i32 + self.position.1;
-            for (x, id) in (left..=right).zip(row[left..=right].iter()) {
-                let xpx = (x * TILE_SZ) as i32 + self.position.0;
+            // We are in tile coordinates at this point so we'll need to translate back to pixel units and world coordinates to draw.
+            let ypx = (y * TILE_SZ) as f32 + self.position.1;
+            // Here we can iterate through the column index and the relevant slice of the row in parallel
+            for (x, id) in (left..right).zip(row[left..right].iter()) {
+                let xpx = (x * TILE_SZ) as f32 + self.position.0;
                 let frame = self.tileset.get_rect(*id);
-                screen.bitblt(&self.tileset.texture, frame, Vec2i(xpx, ypx));
+                screen.bitblt(&self.tileset.texture, frame, Vec2f(xpx, ypx));
             }
         }
     }

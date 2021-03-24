@@ -156,13 +156,13 @@
 
 // We can pull in definitions from elsewhere in the crate!
 use crate::texture::Texture;
-use crate::types::{Rect, Rgba, Vec2i};
+use crate::types::{Rect, Rgba, Vec2f};
 pub struct Screen<'fb> {
     pub framebuffer: &'fb mut [u8],
     width: usize,
     height: usize,
     depth: usize,
-    position: Vec2i,
+    position: Vec2f,
 }
 impl<'fb> Screen<'fb> {
     // Call =wrap= every frame; that means the camera position will need to be stored in the game state
@@ -171,7 +171,7 @@ impl<'fb> Screen<'fb> {
         width: usize,
         height: usize,
         depth: usize,
-        position: Vec2i,
+        position: Vec2f,
     ) -> Self {
         Self {
             framebuffer,
@@ -186,17 +186,17 @@ impl<'fb> Screen<'fb> {
     }
     pub fn bounds(&self) -> Rect {
         Rect {
-            x: self.position.0,
-            y: self.position.1,
+            x: self.position.0 as i32,
+            y: self.position.1 as i32,
             w: self.width as u16,
             h: self.height as u16,
         }
     }
     // Our old, slow friend draw_at, now with super scrolling powers!
     #[inline(always)]
-    pub fn draw_at(&mut self, col: Rgba, Vec2i(x, y): Vec2i) {
-        let x = x - self.position.0;
-        let y = y - self.position.1;
+    pub fn draw_at(&mut self, col: Rgba, Vec2f(x, y): Vec2f) {
+        let x = (x - self.position.0) as i32;
+        let y = (y - self.position.1) as i32;
         // The rest is about the same
         if x < 0 || (self.width as i32) <= x || y < 0 || (self.height as i32) <= y {
             return;
@@ -221,8 +221,8 @@ impl<'fb> Screen<'fb> {
         let c = [col.0, col.1, col.2, col.3];
         // Here's the translation
         let r = Rect {
-            x: r.x - self.position.0,
-            y: r.y - self.position.1,
+            x: r.x - self.position.0 as i32,
+            y: r.y - self.position.1 as i32,
             ..r
         };
         // And the rest is just the same
@@ -239,17 +239,17 @@ impl<'fb> Screen<'fb> {
         }
     }
     // Ditto line
-    pub fn line(&mut self, Vec2i(x0, y0): Vec2i, Vec2i(x1, y1): Vec2i, col: Rgba) {
+    pub fn line(&mut self, Vec2f(x0, y0): Vec2f, Vec2f(x1, y1): Vec2f, col: Rgba) {
         let col = [col.0, col.1, col.2, col.3];
         // translate translate
-        let x0 = x0 - self.position.0;
-        let y0 = y0 - self.position.1;
+        let x0 = (x0 - self.position.0) as i32;
+        let y0 = (y0 - self.position.1) as i32;
         // translate translate
-        let x1 = x1 - self.position.0;
-        let y1 = y1 - self.position.1;
+        let x1 = (x1 - self.position.0) as i32;
+        let y1 = (y1 - self.position.1) as i32;
         // Now proceed as we were
-        let mut x = x0;
-        let mut y = y0;
+        let mut x = x0 as i32;
+        let mut y = y0 as i32;
         let dx = (x1 - x0).abs();
         let sx = if x0 < x1 { 1 } else { -1 };
         let dy = -(y1 - y0).abs();
@@ -278,15 +278,16 @@ impl<'fb> Screen<'fb> {
             }
         }
     }
+
     // Bitblt too begins with a translation
-    pub fn bitblt(&mut self, src: &Texture, from: Rect, Vec2i(to_x, to_y): Vec2i) {
+    pub fn bitblt(&mut self, src: &Texture, from: Rect, Vec2f(to_x, to_y): Vec2f) {
         let (tw, th) = src.size();
         assert!(0 <= from.x);
         assert!(from.x < tw as i32);
         assert!(0 <= from.y);
         assert!(from.y < th as i32);
-        let to_x = to_x - self.position.0;
-        let to_y = to_y - self.position.1;
+        let to_x = (to_x - self.position.0) as i32;
+        let to_y = (to_y - self.position.1) as i32;
         if (to_x + from.w as i32) < 0
             || (self.width as i32) <= to_x
             || (to_y + from.h as i32) < 0
@@ -305,14 +306,13 @@ impl<'fb> Screen<'fb> {
         let x_skip = to_x.max(0) - to_x;
         let y_count = (to_y + from.h as i32).min(self.height as i32) - to_y;
         let x_count = (to_x + from.w as i32).min(self.width as i32) - to_x;
-
         let src_buf = src.buffer();
-        for (row_a, row_b) in src_buf
-            [(src_pitch * (from.y + y_skip) as usize)..(src_pitch * (from.y + y_count) as usize)]
+        for (row_a, row_b) in src_buf[(src_pitch * ((from.y + y_skip) as usize))
+            ..(src_pitch * ((from.y + y_count) as usize))]
             .chunks_exact(src_pitch)
             .zip(
-                self.framebuffer[(dst_pitch * (to_y + y_skip) as usize)
-                    ..(dst_pitch * (to_y + y_count) as usize)]
+                self.framebuffer[(dst_pitch * ((to_y + y_skip) as usize))
+                    ..(dst_pitch * ((to_y + y_count) as usize))]
                     .chunks_exact_mut(dst_pitch),
             )
         {

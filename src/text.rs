@@ -1,27 +1,31 @@
-use crate::types::Vec2i;
+use crate::types::Vec2f;
 use crate::Rect;
 use crate::Texture;
-use image::{Rgb, RgbaImage};
-use std::path::Path;
 use std::rc::Rc;
 
-const CHAR_SIZE: usize = 8;
-const ROWS: usize = 14;
-const COLUMNS: usize = 16;
+const CHAR_SIZE: i32 = 16;
+const ROWS: i32 = 14;
+const COLUMNS: i32 = 16;
 
 pub struct Font {
-    image: Rc<Texture>,
+    pub image: Rc<Texture>,
 }
 
 impl Font {
     pub fn char_to_pos(&self, c: char) -> Rect {
-        let mut x = ((c as u32) - 31) as usize % COLUMNS * CHAR_SIZE - CHAR_SIZE;
-        let y = ((c as u32) - 31) as usize / ROWS * CHAR_SIZE;
+        // println!(
+        //     "ascii code:{}, index: {}, y: {}",
+        //     c as u32,
+        //     ((c as u32) - 31) as usize,
+        //     ((c as u32) - 32) as i32 / COLUMNS * CHAR_SIZE
+        // );
+        let mut x = ((c as u32) - 31) as i32 % COLUMNS * CHAR_SIZE - CHAR_SIZE;
+        let y = ((c as u32) - 32) as i32 / COLUMNS * CHAR_SIZE;
 
         if x < 0 {
-            x += 128;
+            x += CHAR_SIZE * COLUMNS;
         };
-
+        // println!("x: {}, y: {}", x, y);
         Rect {
             x: x as i32,
             y: y as i32,
@@ -32,16 +36,16 @@ impl Font {
 }
 
 pub trait DrawTextExt {
-    fn draw_text(&mut self, f: Font, w: &str, pos: Vec2i);
+    fn draw_text(&mut self, f: &Font, w: &str, pos: Vec2f);
 }
 
 use crate::screen::Screen;
 impl<'fb> DrawTextExt for Screen<'fb> {
-    fn draw_text(&mut self, f: Font, w: &str, mut pos: Vec2i) {
+    fn draw_text(&mut self, f: &Font, w: &str, mut pos: Vec2f) {
         for c in w.chars() {
             let frame = f.char_to_pos(c);
             self.bitblt(&f.image, frame, pos);
-            pos.0 += CHAR_SIZE as i32;
+            pos.0 += CHAR_SIZE as f32;
         }
     }
 }

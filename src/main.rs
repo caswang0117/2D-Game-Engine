@@ -2,6 +2,7 @@ use crate::animation::AnimationState;
 use crate::collision::Contact;
 use crate::collision::Mobile;
 use pixels::{Pixels, SurfaceTexture};
+use rand::distributions::{Bernoulli, Distribution};
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
@@ -66,12 +67,13 @@ struct GameState {
     curr_location: usize,
     obstacles: Vec<Obstacle>,
     tilemaps: Vec<Rc<Tilemap>>,
-    camera_position: Vec2i,
+    camera_position: Vec2f,
+    camera_speed: f32,
     mode: Mode,
-    // right_bound: usize,
-    // left_bound: usize,
-    // top_bound: usize,
-    // bottom_bound: usize,
+    font: Font, // right_bound: usize,
+                // left_bound: usize,
+                // top_bound: usize,
+                // bottom_bound: usize
 }
 
 // impl GameState {
@@ -107,12 +109,8 @@ const DT: f64 = 1.0 / 60.0;
 const WIDTH: usize = 512;
 const HEIGHT: usize = 256;
 const DEPTH: usize = 4;
-const PLAYER_WIDTH: u16 = 100;
-const PLAYER_HEIGHT: u16 = 100;
-const RIGHT_BOUND: usize = 612;
-const LEFT_BOUND: usize = 0;
-const TOP_BOUND: usize = 0;
-const BOTTOM_BOUND: usize = 512;
+const PLAYER_WIDTH: u16 = 32;
+const PLAYER_HEIGHT: u16 = 32;
 const FONT_SIZE: f32 = 20.0;
 
 const CLEAR_COL: Rgba = Rgba(32, 32, 64, 255);
@@ -137,7 +135,7 @@ fn main() {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
-    let person = Rc::new(Texture::with_file(Path::new("content/Person-sprite.png")));
+    let astronaut = Rc::new(Texture::with_file(Path::new("content/Astronaut-Sheet.png")));
     let tex = Rc::new(Texture::with_file(Path::new("content/spacetiles.png")));
     let tileset = Rc::new(Tileset::new(
         vec![
@@ -149,11 +147,12 @@ fn main() {
             Tile { solid: false }, // planet BL
             Tile { solid: false }, // planet BR
             Tile { solid: true },  // meteor
+            Tile { solid: false }, // transparent
         ],
         &tex,
     ));
     let map1 = Tilemap::new(
-        Vec2i(0, 0),
+        Vec2f(0.0, 0.0),
         (16, 8),
         &tileset,
         vec![
@@ -166,7 +165,7 @@ fn main() {
     );
 
     let map2 = Tilemap::new(
-        Vec2i(512, 0),
+        Vec2f(512.0, 0.0),
         (16, 8),
         &tileset,
         vec![
@@ -179,7 +178,7 @@ fn main() {
     );
 
     let map3 = Tilemap::new(
-        Vec2i(1024, 0),
+        Vec2f(1024.0, 0.0),
         (16, 8),
         &tileset,
         vec![
@@ -191,7 +190,7 @@ fn main() {
         ],
     );
     let map4 = Tilemap::new(
-        Vec2i(1536, 0),
+        Vec2f(1536.0, 0.0),
         (16, 8),
         &tileset,
         vec![
@@ -202,34 +201,37 @@ fn main() {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ],
     );
-    // let land = Background::new(
-    //     &Rc::new(Texture::with_file(Path::new("content/simple_bg.jpg"))),
-    //     WIDTH,
-    //     HEIGHT,
-    // );
+
+    let meteors = Tilemap::new(
+        Vec2f(512.0, 0.0),
+        (64, 8),
+        &tileset,
+        Tilemap::generate_rand_map_2(0.95, Vec2f(512.0, 0.0), (64, 8), TileID(8), TileID(7)),
+    );
+
     let space = Background::new(
         &Rc::new(Texture::with_file(Path::new("content/space.png"))),
         WIDTH,
         HEIGHT,
     );
 
-    let walk_frames = Rect::create_frames(0, 4, PLAYER_WIDTH, PLAYER_HEIGHT);
+    let walk_frames = Rectf::create_frames(3, 7, PLAYER_WIDTH, PLAYER_HEIGHT);
     let walk_timing = vec![5, 5, 5, 5];
 
     let walk = Rc::new(Animation::new(walk_frames, walk_timing, true));
     let animations = vec![walk];
     let animations_clone = animations.clone();
     let player = Sprite::new(
-        &person,
+        &astronaut,
         &animations_clone[0],
         AnimationState::new(),
-        Rect {
-            x: 0,
-            y: 0,
+        Rectf {
+            x: 60.0,
+            y: 112.0,
             w: PLAYER_WIDTH,
             h: PLAYER_HEIGHT,
         },
-        5.0,
+        0.5,
         0.0,
     );
     // let player_clone = player.clone();
@@ -249,18 +251,30 @@ fn main() {
     };
     let sprites = vec![player];
 
+    let font = Font {
+        image: Rc::new(Texture::with_file(Path::new("content/ascii.png"))),
+    };
+
     let mut state = GameState {
         // initial game state...
-        animations: animations,
-        sprites: sprites,
-        textures: vec![person],
+        animations,
+        sprites,
+        textures: vec![astronaut],
         // backgrounds: vec![land, space],
         backgrounds: vec![space],
         curr_location: 0,
-        obstacles: vec![ground],
-        tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
-        camera_position: Vec2i(0, 0),
-        mode: Mode::TitleScreen,
+        obstacles: vec![],
+        tilemaps: vec![
+            Rc::new(map1),
+            Rc::new(map2),
+            Rc::new(map3),
+            Rc::new(map4),
+            Rc::new(meteors),
+        ],
+        camera_position: Vec2f(0.0, 0.0),
+        camera_speed: 0.5,
+        mode: Mode::GamePlay,
+        font,
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -339,7 +353,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 w: 512,
                 h: 512,
             },
-            Vec2i(0, 0),
+            Vec2f(0.0, 0.0),
         ),
         Mode::GamePlay => {
             // levels[state.level].0.draw(screen);
@@ -361,6 +375,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             for o in state.obstacles.iter() {
                 screen.draw_obstacle(o);
             }
+            screen.draw_text(&state.font, "our game", Vec2f(100.0, 100.0));
         }
         Mode::EndGame => screen.bitblt(
             &state.textures[3],
@@ -370,7 +385,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 w: 512,
                 h: 512,
             },
-            Vec2i(0, 0),
+            Vec2f(0.0, 0.0),
         ),
     }
 }
@@ -389,88 +404,43 @@ fn update_game(
         }
         Mode::GamePlay => {
             // Player control goes here
-            if input.key_held(VirtualKeyCode::Right) {
-                state.sprites[0].rect.x += 2;
+            // if input.key_held(VirtualKeyCode::Right) {
+            //     state.sprites[0].rect.x += 2;
+            // }
+            // if input.key_held(VirtualKeyCode::Left) {
+            //     state.sprites[0].rect.x -= 2;
+            // }
+            if !&state.sprites[0].on_screen(state.camera_position, HEIGHT, WIDTH) {
+                state.mode = Mode::EndGame;
+            };
+
+            state.sprites[0].rect.x += state.sprites[0].vx;
+
+            // change velocity
+            if input.key_pressed(VirtualKeyCode::Up) {
+                state.sprites[0].vy -= 0.25;
             }
-            if input.key_held(VirtualKeyCode::Left) {
-                state.sprites[0].rect.x -= 2;
+            if input.key_pressed(VirtualKeyCode::Down) {
+                state.sprites[0].vy += 0.25;
             }
-            if input.key_held(VirtualKeyCode::Up) {
-                state.sprites[0].rect.y -= 2;
-            }
-            if input.key_held(VirtualKeyCode::Down) {
-                state.sprites[0].rect.y += 2;
-            }
+
+            // change y position
+            state.sprites[0].rect.y += state.sprites[0].vy;
 
             state.sprites[0].tick_forward();
-            state.backgrounds[state.curr_location].tick_right(WIDTH);
 
-            // right side
-            if state.sprites[0].rect.x + PLAYER_WIDTH as i32
-                >= state.camera_position.0 + WIDTH as i32 - 5
-            {
-                state.camera_position.0 += 2;
-            }
-
-            // left side
-            if state.sprites[0].rect.x <= state.camera_position.0 + 5 {
-                state.camera_position.0 -= 2;
-            }
-
-            // top
-            if state.sprites[0].rect.y <= state.camera_position.1 + 5 {
-                state.camera_position.1 -= 2;
-            }
-
-            // bottom
-            if state.sprites[0].rect.y + PLAYER_HEIGHT as i32
-                >= state.camera_position.1 + HEIGHT as i32 - 5
-            {
-                state.camera_position.1 += 2;
-            }
+            scroll_camera(state);
 
             // Update player position
 
             // Detect collisions: Generate contacts
             contacts.clear();
             Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
-            println!("{:?}", contacts);
 
             // Handle collisions: Apply restitution impulses.
             Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
 
             // Update game rules: What happens when the player touches things?
-
-            // Player control goes here
-            // if input.key_held(VirtualKeyCode::Right) {
-            //     state.velocities[0].0 = 2;
-            // }
-            // if input.key_held(VirtualKeyCode::Left) {
-            //     state.velocities[0].0 = -2;
-            // }
-            // if input.key_held(VirtualKeyCode::Up) {
-            //     state.velocities[0].1 = -2;
-            // }
-            // if input.key_held(VirtualKeyCode::Down) {
-            //     state.velocities[0].1 = 2;
-            // }
-            // // Determine enemy velocity
-
-            // // Update all entities' positions
-            // for (posn, vel) in state.positions.iter_mut().zip(state.velocities.iter()) {
-            //     posn.0 += vel.0;
-            //     posn.1 += vel.1;
-            // }
-
-            // // Detect collisions: Convert positions and sizes to collision bodies, generate contacts
-            // if Collision::gather_contacts(&state.positions, &state.sizes) {
-            //     state.mode = Mode::EndGame;
-            // }
-            // Handle collisions: Apply restitution impulses.
-
-            // Update game rules: What happens when the player touches things?  When enemies touch walls?  Etc.
-
-            // Maybe scroll the camera or change level
         }
         Mode::EndGame => {
             if input.key_held(VirtualKeyCode::R) {
@@ -479,6 +449,35 @@ fn update_game(
                 state.mode = Mode::GamePlay
             }
         }
+    }
+}
+
+fn scroll_camera(state: &mut GameState) {
+    state.camera_position.0 += state.camera_speed;
+}
+
+fn update_camera(state: &mut GameState) {
+    // right side
+    if state.sprites[0].rect.x + PLAYER_WIDTH as f32 >= state.camera_position.0 + WIDTH as f32 - 5.0
+    {
+        state.camera_position.0 += state.camera_speed;
+    }
+
+    // left side
+    if state.sprites[0].rect.x <= state.camera_position.0 + 5.0 {
+        state.camera_position.0 -= state.camera_speed;
+    }
+
+    // top
+    if state.sprites[0].rect.y <= state.camera_position.1 + 5.0 {
+        state.camera_position.1 -= state.camera_speed;
+    }
+
+    // bottom
+    if state.sprites[0].rect.y + PLAYER_HEIGHT as f32
+        >= state.camera_position.1 + HEIGHT as f32 - 5.0
+    {
+        state.camera_position.1 += state.camera_speed;
     }
 }
 

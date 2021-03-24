@@ -1,6 +1,6 @@
 use crate::texture::Texture;
 use crate::types::Rect;
-use crate::Vec2i;
+use crate::Vec2f;
 use std::rc::Rc;
 
 pub struct Background {
@@ -38,6 +38,6 @@ impl<'fb> DrawBackgroundExt for Screen<'fb> {
         // This works because we're only using a public method of Screen here,
         // and the private fields of sprite are visible inside this module
         let frame = b.frame;
-        self.bitblt(&b.image, frame, Vec2i(0, 0));
+        self.bitblt(&b.image, frame, Vec2f(0.0, 0.0));
     }
 }

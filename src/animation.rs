@@ -1,13 +1,13 @@
-use crate::types::Rect;
+use crate::types::Rectf;
 
-#[derive(PartialEq, Eq, Clone, Hash, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Animation {
     // Do this for the exercise today!
     // You'll want to know the frames involved and the timing for each frame
     // But then there's also dynamic data, which might live in this struct or might live somewhere else
     // An Animation/AnimationState split could be fine, if AnimationState holds the start time and the present frame (or just the start time) and possibly a reference to the Animation
     // but there are lots of designs that will work!
-    pub frames: Vec<Rect>,
+    pub frames: Vec<Rectf>,
     pub timing: Vec<usize>,
     pub looping: bool,
     pub done: bool,
@@ -22,17 +22,17 @@ impl Animation {
     // Could have a query function like current_frame(&self, start_time:usize, now:usize, speedup_factor:usize)
     // Or could be ticked in-place
 
-    pub fn new(frames: Vec<Rect>, timing: Vec<usize>, looping: bool) -> Self {
+    pub fn new(frames: Vec<Rectf>, timing: Vec<usize>, looping: bool) -> Self {
         let duration = timing.iter().sum();
         Self {
-            frames: frames,
-            timing: timing,
-            looping: looping,
+            frames,
+            timing,
+            looping,
             done: false,
-            duration: duration,
+            duration,
         }
     }
-    pub fn current_frame(&self, current_tick: usize) -> Rect {
+    pub fn current_frame(&self, current_tick: usize) -> Rectf {
         let mut ticks_so_far = 0;
         for (frame, ticks) in self.frames.iter().zip(self.timing.iter()) {
             ticks_so_far += ticks;

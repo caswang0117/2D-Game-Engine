@@ -1,6 +1,6 @@
 use crate::texture::Texture;
 use crate::tiles::*;
-use crate::types::{Rect, Rgba, Vec2i};
+use crate::types::{Rect, Rgba, Vec2f};
 use std::rc::Rc;
 
 pub struct Obstacle {
@@ -52,7 +52,7 @@ impl<'fb> DrawObstacleExt for Screen<'fb> {
             Some(i) => {
                 let image = o.image.as_ref().unwrap();
                 let frame = o.frame.unwrap();
-                self.bitblt(&image, frame, Vec2i(frame.x, frame.y));
+                self.bitblt(&image, frame, Vec2f(frame.x as f32, frame.y as f32));
             }
             None => self.rect(o.rect.unwrap(), Rgba(200, 200, 200, 255)),
         }
@@ -86,7 +86,7 @@ impl<'fb> DrawObstacle2Ext for Screen<'fb> {
     fn draw_obstacle2(&mut self, o: &Obstacle2) {
         // This works because we're only using a public method of Screen here,
         // and the private fields of sprite are visible inside this module
-        self.bitblt(&o.image, o.frame, Vec2i(o.frame.x, o.frame.y));
+        self.bitblt(&o.image, o.frame, Vec2f(o.frame.x as f32, o.frame.y as f32));
     }
 }
 
