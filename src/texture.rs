@@ -2,6 +2,7 @@ use crate::types::Rect;
 use image::{self, RgbaImage};
 use std::path::Path;
 
+#[derive(PartialEq, Debug)]
 pub struct Texture {
     image: Vec<u8>,
     pub width: usize,

@@ -36,17 +36,18 @@ impl Font {
 }
 
 pub trait DrawTextExt {
-    fn draw_text(&mut self, f: &Font, w: &str, pos: Vec2f);
+    fn draw_text(&mut self, f: &Font, w: &str, pos: Vec2f) -> Vec2f;
 }
 
 use crate::screen::Screen;
 impl<'fb> DrawTextExt for Screen<'fb> {
-    fn draw_text(&mut self, f: &Font, w: &str, mut pos: Vec2f) {
+    fn draw_text(&mut self, f: &Font, w: &str, mut pos: Vec2f) -> Vec2f {
         for c in w.chars() {
             let frame = f.char_to_pos(c);
             self.bitblt(&f.image, frame, pos);
             pos.0 += CHAR_SIZE as f32;
         }
+        pos
     }
 }
 

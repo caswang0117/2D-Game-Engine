@@ -3,6 +3,7 @@ use crate::collision::Contact;
 use crate::collision::Mobile;
 use pixels::{Pixels, SurfaceTexture};
 use rand::distributions::{Bernoulli, Distribution};
+use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
@@ -66,7 +67,8 @@ struct GameState {
     backgrounds: Vec<Background>,
     curr_location: usize,
     obstacles: Vec<Obstacle>,
-    tilemaps: Vec<Rc<Tilemap>>,
+    bg_tilemaps: Vec<Rc<Tilemap>>,
+    obstacle_tilemaps: Vec<Rc<Tilemap>>,
     camera_position: Vec2f,
     camera_speed: f32,
     mode: Mode,
@@ -203,10 +205,19 @@ fn main() {
     );
 
     let meteors = Tilemap::new(
-        Vec2f(512.0, 0.0),
+        Vec2f(100.0, 0.0),
+        // Vec2f(1650.0, 0.0),
         (64, 8),
         &tileset,
-        Tilemap::generate_rand_map_2(0.95, Vec2f(512.0, 0.0), (64, 8), TileID(8), TileID(7)),
+        Tilemap::generate_rand_map_2(0.95, (64, 8), TileID(8), TileID(7)),
+    );
+
+    let meteors2 = Tilemap::new(
+        Vec2f(2548.0, 0.0),
+        // Vec2f(3698.0, 0.0),
+        (64, 8),
+        &tileset,
+        Tilemap::generate_rand_map_2(0.95, (64, 8), TileID(8), TileID(7)),
     );
 
     let space = Background::new(
@@ -264,13 +275,8 @@ fn main() {
         backgrounds: vec![space],
         curr_location: 0,
         obstacles: vec![],
-        tilemaps: vec![
-            Rc::new(map1),
-            Rc::new(map2),
-            Rc::new(map3),
-            Rc::new(map4),
-            Rc::new(meteors),
-        ],
+        bg_tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
+        obstacle_tilemaps: vec![Rc::new(meteors), Rc::new(meteors2)],
         camera_position: Vec2f(0.0, 0.0),
         camera_speed: 0.5,
         mode: Mode::GamePlay,
@@ -366,16 +372,109 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             //     screen.bitblt(tex, anim.frame(), *pos);
             // }
             // screen.draw_background(&state.backgrounds[state.curr_location]);
-            for map in tile_map_at(state, screen) {
-                map.draw(screen)
+            let screen_corners = vec![
+                Vec2f(state.camera_position.0, state.camera_position.1),
+                Vec2f(
+                    state.camera_position.0 + WIDTH as f32,
+                    state.camera_position.1,
+                ),
+                Vec2f(
+                    state.camera_position.0,
+                    state.camera_position.1 + HEIGHT as f32,
+                ),
+                Vec2f(
+                    state.camera_position.0 + WIDTH as f32,
+                    state.camera_position.1 + HEIGHT as f32,
+                ),
+            ];
+            let mut draw_maps = vec![];
+            for posn in screen_corners {
+                if let Some(i) = tile_map_at(posn, &state.bg_tilemaps) {
+                    let map = &state.bg_tilemaps[i];
+                    if !draw_maps.contains(&map) {
+                        draw_maps.push(map);
+                    }
+                }
+                if let Some(i) = tile_map_at(posn, &state.obstacle_tilemaps) {
+                    let map = &state.obstacle_tilemaps[i];
+                    if !draw_maps.contains(&map) {
+                        println!("map index: {:?}", i);
+                        draw_maps.push(map);
+                    }
+                }
             }
+
+            for map in draw_maps {
+                map.draw(screen);
+            }
+
+            //infinite tilemaps
+            update_tilemaps(state.camera_position, &mut state.bg_tilemaps);
+            update_tilemaps(state.camera_position, &mut state.obstacle_tilemaps);
+
             for s in state.sprites.iter() {
                 screen.draw_sprite(s);
             }
             for o in state.obstacles.iter() {
                 screen.draw_obstacle(o);
             }
-            screen.draw_text(&state.font, "our game", Vec2f(100.0, 100.0));
+
+            let mut text_pos =
+                screen.draw_text(&state.font, "It is March 25, 2021.", Vec2f(75.0, 50.0));
+
+            screen.draw_text(
+                &state.font,
+                "The Ever Given is still",
+                Vec2f(text_pos.0 - 80.0, 150.0),
+            );
+            text_pos = screen.draw_text(
+                &state.font,
+                "stuck in the Suez Canal.",
+                Vec2f(text_pos.0 - 50.0, 170.0),
+            );
+
+            screen.draw_text(
+                &state.font,
+                "You were sent to",
+                Vec2f(text_pos.0 + 50.0, 70.0),
+            );
+            text_pos = screen.draw_text(
+                &state.font,
+                "get help from the aliens",
+                Vec2f(text_pos.0 + 70.0, 90.0),
+            );
+            screen.draw_text(
+                &state.font,
+                "to get this beached whale",
+                Vec2f(text_pos.0 - 180.0, 150.0),
+            );
+            text_pos = screen.draw_text(
+                &state.font,
+                "back to the waters.",
+                Vec2f(text_pos.0 - 160.0, 170.0),
+            );
+
+            screen.draw_text(
+                &state.font,
+                "Move up and down",
+                Vec2f(text_pos.0 + 100.0, 180.0),
+            );
+            screen.draw_text(
+                &state.font,
+                "to avoid the meteors",
+                Vec2f(text_pos.0 + 120.0, 200.0),
+            );
+            text_pos = screen.draw_text(
+                &state.font,
+                "and get back to Earth!",
+                Vec2f(text_pos.0 + 130.0, 220.0),
+            );
+
+            text_pos = screen.draw_text(
+                &state.font,
+                "Good luck, humble servant.",
+                Vec2f(text_pos.0 + 50.0, 80.0),
+            );
         }
         Mode::EndGame => screen.bitblt(
             &state.textures[3],
@@ -431,22 +530,64 @@ fn update_game(
 
             scroll_camera(state);
 
-            // Update player position
-
             // Detect collisions: Generate contacts
-            contacts.clear();
-            Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
+            tile_collision(state);
+            // contacts.clear();
+            // Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
 
             // Handle collisions: Apply restitution impulses.
-            Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
-
-            // Update game rules: What happens when the player touches things?
+            // Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
         }
         Mode::EndGame => {
             if input.key_held(VirtualKeyCode::R) {
                 //     state.positions[0] = Vec2i(levels[0].1[0].1 * 16, levels[0].1[0].2 * 16);
                 //     state.velocities[0] = Vec2i(0, 0);
                 state.mode = Mode::GamePlay
+            }
+        }
+    }
+}
+
+fn update_tilemaps(camera_position: Vec2f, tilemaps: &mut Vec<Rc<Tilemap>>) {
+    let first = &tilemaps[0];
+    if first.position.0 as usize + first.size().0 * TILE_SZ < camera_position.0 as usize {
+        let last = tilemaps.last().unwrap();
+        let first = Tilemap {
+            position: Vec2f(last.position.0 + last.size().0 as f32 * TILE_SZ as f32, 0.0),
+            dims: first.dims,
+            tileset: Rc::clone(&first.tileset),
+            map: first.map.clone(),
+        };
+        tilemaps.remove(0);
+        tilemaps.push(Rc::new(first));
+    }
+}
+
+fn tile_collision(state: &mut GameState) {
+    let x = state.sprites[0].rect.x;
+    let y = state.sprites[0].rect.y;
+
+    let tl = Vec2f(x, y);
+    let tr = Vec2f(x + state.sprites[0].rect.w as f32, y);
+    let bl = Vec2f(x, y + state.sprites[0].rect.h as f32);
+    let br = Vec2f(
+        x + state.sprites[0].rect.w as f32,
+        y + state.sprites[0].rect.h as f32,
+    );
+    let posns = vec![tl, tr, bl, br];
+
+    for posn in posns {
+        let map_idx = tile_map_at(posn, &state.obstacle_tilemaps);
+        if let Some(i) = map_idx {
+            // println!(
+            //     "enter first, tile? {:?}",
+            //     state.obstacle_tilemaps[i].tile_at(posn)
+            // );
+            if let Some(t) = state.obstacle_tilemaps[i].tile_at(posn) {
+                // println!("enter second, tile at : {:?}", t);
+                if t.solid {
+                    state.mode = Mode::EndGame
+                }
             }
         }
     }
@@ -481,23 +622,15 @@ fn update_camera(state: &mut GameState) {
     }
 }
 
-fn tile_map_at(state: &mut GameState, screen: &mut Screen) -> Vec<Rc<Tilemap>> {
-    let screen_pos_l = screen.size();
-    let screen_pos_r = (
-        screen_pos_l.0 + PLAYER_WIDTH as usize,
-        screen_pos_l.1 + PLAYER_HEIGHT as usize,
-    );
-
-    let mut show_tilemaps = vec![];
-    let mut x_pos_so_far = 0;
-    for (i, map) in state.tilemaps.iter().enumerate() {
-        x_pos_so_far += map.size().0 * TILE_SZ;
-        if x_pos_so_far >= screen_pos_l.0 as usize {
-            show_tilemaps.push(Rc::clone(map));
-            if x_pos_so_far < screen_pos_r.0 as usize && i + 1 < state.tilemaps.len() {
-                show_tilemaps.push(Rc::clone(&state.tilemaps[i + 1]))
-            }
+fn tile_map_at(posn: Vec2f, tilemaps: &Vec<Rc<Tilemap>>) -> Option<usize> {
+    for (i, map) in tilemaps.iter().enumerate() {
+        let is_on_x =
+            posn.0 >= map.position.0 && posn.0 <= map.position.0 + (map.size().0 * TILE_SZ) as f32;
+        let is_on_y =
+            posn.1 >= map.position.1 && posn.1 <= map.position.1 + (map.size().1 * TILE_SZ) as f32;
+        if is_on_x && is_on_y {
+            return Some(i);
         }
     }
-    show_tilemaps
+    None
 }

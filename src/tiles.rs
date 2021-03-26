@@ -7,12 +7,13 @@ use std::rc::Rc;
 
 pub const TILE_SZ: usize = 32;
 /// A graphical tile, we'll implement Copy since it's tiny
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Tile {
     pub solid: bool, // ... any extra data like collision flags or other properties
 }
 
 /// A set of tiles used in multiple Tilemaps
+#[derive(PartialEq, Debug)]
 pub struct Tileset {
     // Tile size is a constant, so we can find the tile in the texture using math
     // (assuming the texture is a grid of tiles).
@@ -22,7 +23,7 @@ pub struct Tileset {
     // Maybe not always the best choice if there aren't many tiles in a tileset!
 }
 /// Indices into a Tileset
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TileID(pub usize);
 
 /// Grab a tile with a given ID
@@ -60,16 +61,17 @@ impl Tileset {
     }
 }
 
+#[derive(PartialEq, Debug)]
 /// An actual tilemap
 pub struct Tilemap {
     /// Whce the tilemap is in space, use your favorite number type here
     pub position: Vec2f,
     /// How big it is
-    dims: (usize, usize),
+    pub dims: (usize, usize),
     /// Which tileset is used for this tilemap
-    tileset: Rc<Tileset>,
+    pub tileset: Rc<Tileset>,
     /// A row-major grid of tile IDs in tileset
-    map: Vec<TileID>,
+    pub map: Vec<TileID>,
 }
 
 impl Tilemap {
@@ -92,13 +94,7 @@ impl Tilemap {
         }
     }
 
-    pub fn generate_rand_map_2(
-        p: f32,
-        position: Vec2f,
-        dims: (usize, usize),
-        t1: TileID,
-        t2: TileID,
-    ) -> Vec<usize> {
+    pub fn generate_rand_map_2(p: f32, dims: (usize, usize), t1: TileID, t2: TileID) -> Vec<usize> {
         let m = Bernoulli::new(p as f64).unwrap();
         let mut map = vec![];
 
@@ -115,20 +111,24 @@ impl Tilemap {
 
     pub fn tile_id_at(&self, Vec2f(x, y): Vec2f) -> TileID {
         // Translate into map coordinates
+        // println!("player x: {}, map x: {}", x, self.position.0);
+        assert!(
+            // x >= 0.0 && x < self.dims.0 as f32,
+            x >= self.position.0 && x <= self.position.0 + (self.dims.0 * TILE_SZ) as f32,
+            "Tile X coordinate {} out of bounds {}, {}",
+            x,
+            self.position.0,
+            self.position.0 + (self.dims.0 * TILE_SZ) as f32
+        );
+        assert!(
+            y >= self.position.1 && y <= self.position.1 + (self.dims.1 * TILE_SZ) as f32,
+            "Tile Y coordinate {} out of bounds {}, {}",
+            y,
+            self.position.1,
+            self.position.1 + (self.dims.1 * TILE_SZ) as f32
+        );
         let x = (x - self.position.0) / TILE_SZ as f32; // gets into world coordinates in frame of tile map
         let y = (y - self.position.1) / TILE_SZ as f32;
-        assert!(
-            x >= 0.0 && x < self.dims.0 as f32,
-            "Tile X coordinate {} out of bounds {}",
-            x,
-            self.dims.0
-        );
-        assert!(
-            y >= 0.0 && y < self.dims.1 as f32,
-            "Tile Y coordinate {} out of bounds {}",
-            y,
-            self.dims.1
-        );
         self.map[y as usize * self.dims.0 + x as usize]
     }
 
@@ -136,8 +136,30 @@ impl Tilemap {
         self.dims
     }
 
-    pub fn tile_at(&self, posn: Vec2f) -> Tile {
-        self.tileset[self.tile_id_at(posn)]
+    pub fn tile_at(&self, posn: Vec2f) -> Option<Tile> {
+        // let Vec2f(x, y) = posn;
+        // let x = (x - self.position.0) / TILE_SZ as f32; // gets into world coordinates in frame of tile map
+        // let y = (y - self.position.1) / TILE_SZ as f32;
+        // println!(
+        //     "x is out of bounds: {}, pos x: {}, pos y: {}, map x: {}, map y: {}",
+        //     posn.0 >= self.position.0 && posn.0 < self.position.0 + (self.dims.0 * TILE_SZ) as f32,
+        //     posn.0,
+        //     posn.1,
+        //     self.position.0,
+        //     self.position.1
+        // );
+        if (posn.0 >= self.position.0 && posn.0 < self.position.0 + (self.dims.0 * TILE_SZ) as f32)
+            || (posn.1 >= self.position.1
+                && posn.1 <= self.position.1 + (self.dims.1 * TILE_SZ) as f32)
+        {
+            Some(self.tileset[self.tile_id_at(posn)])
+        } else {
+            None
+        }
+    }
+
+    pub fn wrap_around(&mut self, posn: Vec2f) {
+        self.position = posn
     }
 
     pub fn draw(&self, screen: &mut Screen) {
