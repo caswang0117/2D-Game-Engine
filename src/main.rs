@@ -114,9 +114,11 @@ const PLAYER_WIDTH: u16 = 32;
 const PLAYER_HEIGHT: u16 = 32;
 const FONT_SIZE: f32 = 20.0;
 const START_P: f32 = 0.97;
+const START_SPEED: f32 = 0.5;
 const SPRITE_INITIAL_X: f32= 60.0;
 const SPRITE_INITIAL_Y: f32 = 112.0;
 const SPRITE_INITIAL_VX: f32 = 0.5;
+const SPRITE_INITIAL_VY: f32 = 0.0;
 const LEVEL_WIDTH: usize = 2048;
 const METEOR_START: f32 = 1400.0;
 // const METEOR_START: f32 = 100.0;
@@ -349,7 +351,7 @@ fn main() {
         bg_tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
         obstacle_tilemaps: vec![Rc::new(meteors), Rc::new(meteors2)],
         camera_position: Vec2f(0.0, 0.0),
-        camera_speed: 0.5,
+        camera_speed: START_SPEED,
         mode: Mode::TitleScreen,
         font,
         level: 0,
@@ -597,8 +599,10 @@ fn update_game(
         }
         Mode::EndGame => {
             state.camera_position = Vec2f(0.0, 0.0);
+            state.camera_speed = START_SPEED; 
             state.level = 0;
             state.sprites[0].vx = SPRITE_INITIAL_VX;
+            state.sprites[0].vy = SPRITE_INITIAL_VY;
             state.sprites[0].rect.x = SPRITE_INITIAL_X;
             state.sprites[0].rect.y = SPRITE_INITIAL_Y;
             
