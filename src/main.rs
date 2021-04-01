@@ -147,6 +147,8 @@ fn main() {
     };
     let astronaut = Rc::new(Texture::with_file(Path::new("content/Astronaut-Sheet.png")));
     let tex = Rc::new(Texture::with_file(Path::new("content/spacetiles.png")));
+    let start = Background::new(&Rc::new(Texture::with_file(Path::new("content/startscreen.png"))), WIDTH, HEIGHT);
+    let end = Background::new(&Rc::new(Texture::with_file(Path::new("content/endscreen.png"))), WIDTH, HEIGHT);
     let tileset = Rc::new(Tileset::new(
         vec![
             Tile { solid: false }, // dark
@@ -345,7 +347,7 @@ fn main() {
         animations,
         sprites,
         textures: vec![astronaut],
-        backgrounds: vec![space],
+        backgrounds: vec![start,end],
         curr_location: 0,
         obstacles: vec![],
         bg_tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
@@ -517,17 +519,18 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             }
         }
         Mode::EndGame => {
-            screen.draw_background(&state.backgrounds[0]);
+            screen.draw_background(&state.backgrounds[1]);
+            screen.rect(Rect{w:25.0, h:15.0, x: 175.0, y: 90.0}, )
             let mut game_over = Text::new(
                 state.font.clone(),
                 "GAME OVER",
-                Vec2f(170.0, 80.0),
+                Vec2f(175.0, 90.0),
             );
 
             let mut try_again = Text::new(
                 state.font.clone(),
                 "Press enter to play again",
-                Vec2f(70.0, 120.0),
+                Vec2f(70.0, 130.0),
             );
 
             screen.draw_text(&mut game_over);
