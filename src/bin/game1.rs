@@ -1,6 +1,4 @@
-use crate::animation::AnimationState;
-use crate::collision::Contact;
-use crate::collision::Mobile;
+use anim2d::collision::*;
 use pixels::{Pixels, SurfaceTexture};
 use rand::distributions::{Bernoulli, Distribution};
 use std::collections::HashSet;
@@ -13,42 +11,18 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
-// Whoa what's this?
-// Mod without brackets looks for a nearby file.
-mod screen;
-// Then we can use as usual.  The screen module will have drawing utilities.
-use screen::Screen;
-// Collision will have our collision bodies and contact types
-mod collision;
-// Lazy glob imports
-use collision::*;
-// Texture has our image loading and processing stuff
-mod texture;
-use texture::Texture;
-// Animation will define our animation datatypes and blending or whatever
-mod animation;
-use animation::Animation;
-
-mod audio;
-// Sprite will define our movable sprites
-mod sprite;
-// Lazy glob import, see the extension trait business later for why
-use sprite::*;
-// And we'll put our general purpose types like color and geometry here:
-mod types;
-use types::*;
-
-mod text;
-use text::*;
-
-mod background;
-use background::*;
-
-mod obstacle;
-use obstacle::*;
-
-mod tiles;
-use tiles::*;
+use anim2d::screen::Screen;
+use anim2d::collision::*;
+use anim2d::texture::Texture;
+use anim2d::animation::*;
+use anim2d::sprite::*;
+use anim2d::types::*;
+use anim2d::types::Vec2f;
+use anim2d::tiles::Tilemap;
+use anim2d::text::*;
+use anim2d::background::*;
+use anim2d::obstacle::*;
+use anim2d::tiles::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Mode {
@@ -57,10 +31,7 @@ enum Mode {
     EndGame,
 }
 
-// Now this main module is just for the run-loop and rules processing.
 struct GameState {
-    // What data do we need for this game?  Wall positions?
-    // Colliders?  Sprites and stuff?
     animations: Vec<Rc<Animation>>,
     textures: Vec<Rc<Texture>>,
     sprites: Vec<Sprite>,
@@ -77,33 +48,6 @@ struct GameState {
     text: Vec<Text>,
 }
 
-// impl GameState {
-//     pub fn new(
-//         animations: Vec<Animation>,
-//         textures: Vec<Rc<Texture>>,
-//         sprites: Vec<Sprite>,
-//         backgrounds: Vec<Background>,
-//         curr_location: usize,
-//         ground: Rect,
-//         obstacles: Vec<Rc<Obstacle>>,
-//         tilemaps: Vec<Rc<Tilemap>>,
-//         camera_position: Vec2i,
-//     ) -> Self {
-//         let left_bound = tilemaps[0]
-//         Self {
-//             animations: animations,
-//             textures: textures,
-//             sprites: sprites,
-//             backgrounds: backgrounds,
-//             curr_location: curr_location,
-//             ground: ground,
-//             obstacles: obstacles,
-//             tilemaps: tilemaps,
-//             camera_position: camera_position,
-//             left_bound:
-//         }
-//     }
-// }
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
@@ -133,7 +77,7 @@ fn main() {
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
         WindowBuilder::new()
-            .with_title("Anim2D")
+            .with_title("Race to Save the Beached Whale")
             .with_inner_size(size)
             .with_min_inner_size(size)
             .with_resizable(false)
@@ -520,7 +464,6 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
         }
         Mode::EndGame => {
             screen.draw_background(&state.backgrounds[1]);
-            screen.rect(Rect{w:25.0, h:15.0, x: 175.0, y: 90.0}, )
             let mut game_over = Text::new(
                 state.font.clone(),
                 "GAME OVER",
@@ -532,6 +475,11 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 "Press enter to play again",
                 Vec2f(70.0, 130.0),
             );
+
+            screen.rect(Rect{w:164, h:30, x: 164, y: 82}, Rgba(215,0,0,255));
+            screen.line(Vec2f(160.0, 82.0), Vec2f(160.0,112.0), Rgba(215,0,0,255));
+            screen.line(Vec2f(156.0, 82.0), Vec2f(156.0,112.0), Rgba(215,0,0,255));
+            screen.line(Vec2f(336.0, 82.0), Vec2f(336.0,112.0), Rgba(215,0,0,255));
 
             screen.draw_text(&mut game_over);
             screen.draw_text(&mut try_again);
@@ -747,9 +695,9 @@ fn update_camera(state: &mut GameState) {
 fn tile_map_at(posn: Vec2f, tilemaps: &Vec<Rc<Tilemap>>) -> Option<usize> {
     for (i, map) in tilemaps.iter().enumerate() {
         let is_on_x =
-            posn.0 >= map.position.0 && posn.0 <= map.position.0 + (map.size().0 * TILE_SZ) as f32;
+            posn.0 >= map.position.0 && posn.0 <= map.position.0 + (map.size().0 * anim2d::TILE_SZ) as f32;
         let is_on_y =
-            posn.1 >= map.position.1 && posn.1 <= map.position.1 + (map.size().1 * TILE_SZ) as f32;
+            posn.1 >= map.position.1 && posn.1 <= map.position.1 + (map.size().1 * anim2d::TILE_SZ) as f32;
         if is_on_x && is_on_y {
             return Some(i);
         }

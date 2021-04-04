@@ -1,8 +1,7 @@
 use crate::animation::Animation;
 use crate::animation::AnimationState;
 use crate::texture::Texture;
-use crate::types::Vec2f;
-use crate::{Rect, Rectf};
+use crate::types::*;
 use std::rc::Rc;
 
 #[derive(Clone)]

@@ -1,4 +1,4 @@
-use crate::Obstacle;
+use crate::obstacle::*;
 use crate::Sprite;
 use crate::SpriteID;
 use crate::{Rect, Rectf};
