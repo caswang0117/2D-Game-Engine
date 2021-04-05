@@ -1,4 +1,3 @@
-use kira::arrangement::handle::ArrangementHandle;
 use kira::arrangement::Arrangement;
 use kira::arrangement::LoopArrangementSettings;
 use kira::instance::handle::InstanceHandle;
@@ -14,6 +13,7 @@ pub struct SoundID(pub usize);
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum AlreadyPlayingAction {
+    Play,
     Retrigger,
     CancelWithFade(f64), // f64: duration of the fade
     CancelWithoutFade,
@@ -24,7 +24,6 @@ pub struct Audio {
     pub manager: AudioManager,
     pub sound_handles: Vec<SoundHandle>,
     pub instance_handles: Vec<Vec<InstanceHandle>>,
-    pub arrangement_handles: Vec<Vec<ArrangementHandle>>, // for looping sounds
 }
 
 impl Audio {
@@ -34,15 +33,10 @@ impl Audio {
         for _i in 0..num_sounds {
             instance_handles.push(vec![]);
         }
-        let mut arrangement_handles = vec![];
-        for _i in 0..num_sounds {
-            arrangement_handles.push(vec![]);
-        }
         Self {
             manager,
             sound_handles,
             instance_handles,
-            arrangement_handles,
         }
     }
 
@@ -53,6 +47,7 @@ impl Audio {
         loop_start: Option<f64>,
         action: AlreadyPlayingAction,
     ) {
+        self.remove_stopped_instances();
         let settings = InstanceSettings::default();
         if self.instance_handles[id.0].is_empty() {
             // if sound is not currently playing, play it and add the instance to self
@@ -70,6 +65,12 @@ impl Audio {
         } else {
             // if the sound is currently playing, handle appropriately
             match action {
+                AlreadyPlayingAction::Play => {
+                    // play sound and add the instance to self
+                    if let Ok(instance_handle) = self.sound_handles[id.0].play(settings) {
+                        self.instance_handles[id.0].push(instance_handle);
+                    }
+                }
                 AlreadyPlayingAction::Retrigger => {
                     self.stop(id, None);
                     self.play(id, loops, loop_start, action);
@@ -79,12 +80,7 @@ impl Audio {
                     self.stop(id, Some(tween));
                 }
                 AlreadyPlayingAction::CancelWithoutFade => self.stop(id, None),
-                AlreadyPlayingAction::Nothing => {
-                    // play sound and add the instance to self
-                    if let Ok(instance_handle) = self.sound_handles[id.0].play(settings) {
-                        self.instance_handles[id.0].push(instance_handle);
-                    }
-                }
+                AlreadyPlayingAction::Nothing => {}
             }
         }
     }

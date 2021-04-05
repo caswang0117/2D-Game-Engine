@@ -127,8 +127,14 @@ impl Tilemap {
             self.position.1,
             self.position.1 + (self.dims.1 * TILE_SZ) as f32
         );
-        let x = (x - self.position.0) / TILE_SZ as f32; // gets into world coordinates in frame of tile map
-        let y = (y - self.position.1) / TILE_SZ as f32;
+        let x = ((x - self.position.0) / TILE_SZ as f32).floor(); // gets into world coordinates in frame of tile map
+        let y = ((y - self.position.1) / TILE_SZ as f32).floor().min(31.0);
+        assert!(
+            (y as usize * self.dims.0 + x as usize) as usize <= self.map.len() - 1,
+            "x coord: {}, y coord: {}",
+            x,
+            y
+        );
         self.map[y as usize * self.dims.0 + x as usize]
     }
 

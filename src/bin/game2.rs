@@ -51,6 +51,7 @@ struct GameState {
     font: Rc<Font>,
     level: usize,
     text: Vec<Text>,
+    scores: Scores
 }
 
 // seconds per frame
@@ -234,12 +235,6 @@ fn main() {
     //     Tilemap::generate_rand_map_2(0.95, (64, 8), TileID(8), TileID(7)),
     // );
 
-    let space = Background::new(
-        &Rc::new(Texture::with_file(Path::new("content/space.png"))),
-        WIDTH,
-        HEIGHT,
-    );
-
     let swim_frames = Rectf::create_frames(0, 4, PLAYER_WIDTH, PLAYER_HEIGHT);
     let swim_timing = vec![6, 6, 6, 6];
 
@@ -288,6 +283,10 @@ fn main() {
     );
 
     let display_text = vec![text1, text2];
+
+    let mut scores = Scores::new("data/scores.json");
+    scores.sort();
+
     let mut state = GameState {
         // initial game state...
         animations,
@@ -300,10 +299,11 @@ fn main() {
         obstacle_tilemaps: vec![],
         camera_position: Vec2f(0.0, 0.0),
         camera_speed: 0.0,
-        mode: Mode::GamePlay,
+        mode: Mode::EndGame,
         font,
         level: 0,
         text: display_text,
+        scores
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -315,16 +315,6 @@ fn main() {
     let start = Instant::now();
     // Track end of the last frame
     let mut since = Instant::now();
-
-    let score = Score {
-        name: "Janice".to_string(),
-        value: "111".to_string(),
-    };
-    let s = Scores::new("data/scores.json");
-    for score in s.scores {
-        println!("{}, {}", score.name, score.value)
-    }
-    // scores.save("data/scores.json");
     event_loop.run(move |event, _, control_flow| {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
@@ -378,20 +368,63 @@ fn main() {
     });
 }
 
+fn draw_scores(state: &mut GameState, screen: &mut Screen) {
+    // scores box 
+    let box_color = Rgba(115, 115, 115, 0);
+    let r = Rect {
+        x: 120,
+        y: 400, 
+        w: 270,
+        h: 275
+    };
+    screen.rect(r, box_color);
+    screen.line(Vec2f(r.x as f32, r.y as f32 - 5.0), Vec2f(r.x as f32 + r.w as f32, r.y as f32 - 5.0), box_color);
+    screen.line(Vec2f(r.x as f32, (r.y + r.h as i32) as f32 + 5.0), Vec2f(r.x as f32 + r.w as f32, (r.y + r.h as i32) as f32 + 5.0), box_color);
+
+    // scores text
+    let mut scores_text = Text::new(
+        state.font.clone(),
+        "HIGH SCORES",
+        Vec2f(r.x as f32 + 40.0, r.y as f32 + 30.0)
+    );
+    screen.draw_text(&mut scores_text);
+
+    for (i, score) in state.scores.scores.iter().enumerate() {
+        let mut score_text = Text::new(
+            state.font.clone(),
+            format!("{}. {} seconds", i+1, score.value).as_str(),
+            Vec2f(r.x as f32 + 20.0, r.y as f32 + 40.0 + 35.0 * (i+1) as f32)
+        );
+        screen.draw_text(&mut score_text);
+    }
+}
+
 fn draw_game(state: &mut GameState, screen: &mut Screen) {
     // Call screen's drawing methods to render the game state
     screen.clear(Rgba(80, 80, 80, 255));
 
     match state.mode {
         Mode::TitleScreen => {
-            screen.draw_background(&state.backgrounds[0]);
+            // replace w background 
+            let r = Rect {
+                x: 0,
+                y: 0, 
+                w: WIDTH as u16,
+                h: HEIGHT as u16
+            };
+            screen.rect(r, Rgba(0,0,0,0));
+
+            draw_scores(state, screen);
+
+            // start text
             let mut start_text = Text::new(
                 state.font.clone(),
                 "Press enter to start",
-                Vec2f(100.0, 200.0),
+                Vec2f(100.0, 850.0),
             );
 
             screen.draw_text(&mut start_text);
+
         }
         Mode::GamePlay => {
             // levels[state.level].0.draw(screen);
@@ -475,23 +508,25 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             }
         }
         Mode::EndGame => {
-            screen.draw_background(&state.backgrounds[1]);
+            // screen.draw_background(&state.backgrounds[1]);
             let mut game_over = Text::new(
                 state.font.clone(),
                 "GAME OVER",
                 Vec2f(175.0, 90.0),
             );
 
+            draw_scores(state, screen);
+
             let mut try_again = Text::new(
                 state.font.clone(),
-                "Press enter to play again",
-                Vec2f(70.0, 130.0),
+                "Press enter to start",
+                Vec2f(100.0, 850.0),
             );
 
-            screen.rect(Rect{w:164, h:30, x: 164, y: 82}, Rgba(215,0,0,255));
-            screen.line(Vec2f(160.0, 82.0), Vec2f(160.0,112.0), Rgba(215,0,0,255));
-            screen.line(Vec2f(156.0, 82.0), Vec2f(156.0,112.0), Rgba(215,0,0,255));
-            screen.line(Vec2f(336.0, 82.0), Vec2f(336.0,112.0), Rgba(215,0,0,255));
+            // screen.rect(Rect{w:164, h:30, x: 164, y: 82}, Rgba(215,0,0,255));
+            // screen.line(Vec2f(160.0, 82.0), Vec2f(160.0,112.0), Rgba(215,0,0,255));
+            // screen.line(Vec2f(156.0, 82.0), Vec2f(156.0,112.0), Rgba(215,0,0,255));
+            // screen.line(Vec2f(336.0, 82.0), Vec2f(336.0,112.0), Rgba(215,0,0,255));
 
             screen.draw_text(&mut game_over);
             screen.draw_text(&mut try_again);
@@ -657,21 +692,33 @@ fn tile_collision(state: &mut GameState) {
     let x = state.sprites[0].rect.x;
     let y = state.sprites[0].rect.y;
 
-    let tl = Vec2f(x + 12.0, y + 12.0);
-    let tr = Vec2f(x + state.sprites[0].rect.w as f32 - 12.0, y + 12.0);
-    let bl = Vec2f(x + 12.0, y + state.sprites[0].rect.h as f32);
+    let tl = Vec2f(x + 18.0, y);
+    let tr = Vec2f(x + state.sprites[0].rect.w as f32 - 18.0, y);
+    let bl = Vec2f(x + 18.0, y + state.sprites[0].rect.h as f32);
+    let bm = Vec2f(x + (state.sprites[0].rect.w) as f32/2.0, y + state.sprites[0].rect.h as f32);
     let br = Vec2f(
-        x + state.sprites[0].rect.w as f32 - 12.0,
+        x + state.sprites[0].rect.w as f32 - 10.0,
         y + state.sprites[0].rect.h as f32,
     );
-    let posns = vec![tl, tr, bl, br];
+    let ml = Vec2f(
+        x + state.sprites[0].rect.w as f32 + 18.0,
+        (y + state.sprites[0].rect.h as f32) as f32 / 2.0,
+    );
+    let mr = Vec2f(x + (state.sprites[0].rect.w) as f32/2.0 - 18.0, y + (state.sprites[0].rect.h as f32)/2.0);
+    let posns = vec![tl, tr, bl, bm, br, ml, mr];
 
     for posn in posns {
-        let map_idx = tile_map_at(posn, &state.obstacle_tilemaps);
+        let map_idx = tile_map_at(posn, &state.bg_tilemaps);
         if let Some(i) = map_idx {
-            if let Some(t) = state.obstacle_tilemaps[i].tile_at(posn) {
+            if let Some(t) = state.bg_tilemaps[i].tile_at(posn) {
                 if t.solid {
-                    state.mode = Mode::EndGame
+                    if posn == tl || posn == ml {
+                        state.sprites[0].rect.x += 2.0;
+                    } else if posn == bl || posn == bm || posn == br {
+                        state.sprites[0].rect.y -= 2.0;
+                    } else {
+                        state.sprites[0].rect.x -= 2.0;
+                    } 
                 }
             }
         }

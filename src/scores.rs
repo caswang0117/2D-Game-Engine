@@ -1,13 +1,13 @@
 use serde::Deserialize;
 use serde::Serialize;
+use std::cmp::Reverse;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Write;
 
 #[derive(Serialize, Deserialize)]
 pub struct Score {
-    pub name: String,
-    pub value: String,
+    pub value: i16,
 }
 
 pub struct Scores {
@@ -26,9 +26,13 @@ impl Scores {
         Self { scores }
     }
 
-    pub fn save(self, path: &str) {
+    pub fn save(&self, path: &str) {
         let j = serde_json::to_string(&self.scores).unwrap();
         let mut f = File::create(path).unwrap();
         f.write_all(&j.as_bytes()).unwrap();
+    }
+
+    pub fn sort(&mut self) {
+        self.scores.sort_by_key(|s| s.value);
     }
 }
