@@ -1,4 +1,7 @@
-use anim2d::collision::*;
+use kira::manager::AudioManager;
+use kira::manager::AudioManagerSettings;
+use kira::sound::SoundSettings;
+use kira::Tempo;
 use pixels::{Pixels, SurfaceTexture};
 use rand::distributions::{Bernoulli, Distribution};
 use std::collections::HashSet;
@@ -11,18 +14,19 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
-use anim2d::screen::Screen;
-use anim2d::collision::*;
-use anim2d::texture::Texture;
 use anim2d::animation::*;
-use anim2d::sprite::*;
-use anim2d::types::*;
-use anim2d::types::Vec2f;
-use anim2d::tiles::Tilemap;
-use anim2d::text::*;
+use anim2d::audio::*;
 use anim2d::background::*;
+use anim2d::collision::*;
 use anim2d::obstacle::*;
+use anim2d::screen::Screen;
+use anim2d::sprite::*;
+use anim2d::text::*;
+use anim2d::texture::Texture;
+use anim2d::tiles::Tilemap;
 use anim2d::tiles::*;
+use anim2d::types::Vec2f;
+use anim2d::types::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Mode {
@@ -59,7 +63,7 @@ const PLAYER_HEIGHT: u16 = 32;
 const FONT_SIZE: f32 = 20.0;
 const START_P: f32 = 0.97;
 const START_SPEED: f32 = 0.5;
-const SPRITE_INITIAL_X: f32= 60.0;
+const SPRITE_INITIAL_X: f32 = 60.0;
 const SPRITE_INITIAL_Y: f32 = 112.0;
 const SPRITE_INITIAL_VX: f32 = 0.5;
 const SPRITE_INITIAL_VY: f32 = 0.0;
@@ -91,8 +95,16 @@ fn main() {
     };
     let astronaut = Rc::new(Texture::with_file(Path::new("content/Astronaut-Sheet.png")));
     let tex = Rc::new(Texture::with_file(Path::new("content/spacetiles.png")));
-    let start = Background::new(&Rc::new(Texture::with_file(Path::new("content/startscreen.png"))), WIDTH, HEIGHT);
-    let end = Background::new(&Rc::new(Texture::with_file(Path::new("content/endscreen.png"))), WIDTH, HEIGHT);
+    let start = Background::new(
+        &Rc::new(Texture::with_file(Path::new("content/startscreen.png"))),
+        WIDTH,
+        HEIGHT,
+    );
+    let end = Background::new(
+        &Rc::new(Texture::with_file(Path::new("content/endscreen.png"))),
+        WIDTH,
+        HEIGHT,
+    );
     let tileset = Rc::new(Tileset::new(
         vec![
             Tile { solid: false }, // dark
@@ -157,6 +169,21 @@ fn main() {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ],
     );
+    let mut audio_manager = AudioManager::new(AudioManagerSettings::default()).unwrap();
+    let space = audio_manager
+        .load_sound(
+            "content/test_audio.mp3",
+            SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
+    let rocket = audio_manager
+        .load_sound(
+            "content/rocket.wav",
+            SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
+    let sound_handles = vec![space, rocket];
+    let mut audio = Audio::new(audio_manager, sound_handles);
 
     let meteors = Tilemap::new(
         Vec2f(METEOR_START as f32, 0.0),
@@ -291,7 +318,7 @@ fn main() {
         animations,
         sprites,
         textures: vec![astronaut],
-        backgrounds: vec![start,end],
+        backgrounds: vec![start, end],
         curr_location: 0,
         obstacles: vec![],
         bg_tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
@@ -313,6 +340,10 @@ fn main() {
     let start = Instant::now();
     // Track end of the last frame
     let mut since = Instant::now();
+
+    audio.play(SoundID(0), false, None, AlreadyPlayingAction::Nothing);
+    audio.play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
+
     event_loop.run(move |event, _, control_flow| {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
@@ -550,20 +581,20 @@ fn update_game(
         }
         Mode::EndGame => {
             state.camera_position = Vec2f(0.0, 0.0);
-            state.camera_speed = START_SPEED; 
+            state.camera_speed = START_SPEED;
             state.level = 0;
             state.sprites[0].vx = SPRITE_INITIAL_VX;
             state.sprites[0].vy = SPRITE_INITIAL_VY;
             state.sprites[0].rect.x = SPRITE_INITIAL_X;
             state.sprites[0].rect.y = SPRITE_INITIAL_Y;
-            
+
             let mut bg_tilemaps = vec![];
             for (i, map) in state.bg_tilemaps.iter().enumerate() {
                 let new = Tilemap {
                     position: Vec2f((i * WIDTH) as f32, 0.0),
                     dims: map.dims,
                     tileset: Rc::clone(&map.tileset),
-                    map: map.map.clone()
+                    map: map.map.clone(),
                 };
                 bg_tilemaps.push(Rc::new(new));
             }
@@ -571,17 +602,20 @@ fn update_game(
             let mut obstacle_tilemaps = vec![];
             for (i, map) in state.obstacle_tilemaps.iter().enumerate() {
                 let new = Tilemap::new(
-                    Vec2f(METEOR_START + map.dims.0 as f32 * TILE_SZ as f32 * i as f32, 0.0),
+                    Vec2f(
+                        METEOR_START + map.dims.0 as f32 * TILE_SZ as f32 * i as f32,
+                        0.0,
+                    ),
                     map.dims,
                     &Rc::clone(&map.tileset),
                     Tilemap::generate_rand_map_2(START_P, map.dims, TileID(8), TileID(7)),
                 );
-               obstacle_tilemaps.push(Rc::new(new));
+                obstacle_tilemaps.push(Rc::new(new));
             }
 
             state.bg_tilemaps = bg_tilemaps;
             state.obstacle_tilemaps = obstacle_tilemaps;
-            
+
             if input.key_held(VirtualKeyCode::Return) {
                 //     state.positions[0] = Vec2i(levels[0].1[0].1 * 16, levels[0].1[0].2 * 16);
                 //     state.velocities[0] = Vec2i(0, 0);
@@ -694,10 +728,10 @@ fn update_camera(state: &mut GameState) {
 
 fn tile_map_at(posn: Vec2f, tilemaps: &Vec<Rc<Tilemap>>) -> Option<usize> {
     for (i, map) in tilemaps.iter().enumerate() {
-        let is_on_x =
-            posn.0 >= map.position.0 && posn.0 <= map.position.0 + (map.size().0 * anim2d::TILE_SZ) as f32;
-        let is_on_y =
-            posn.1 >= map.position.1 && posn.1 <= map.position.1 + (map.size().1 * anim2d::TILE_SZ) as f32;
+        let is_on_x = posn.0 >= map.position.0
+            && posn.0 <= map.position.0 + (map.size().0 * anim2d::TILE_SZ) as f32;
+        let is_on_y = posn.1 >= map.position.1
+            && posn.1 <= map.position.1 + (map.size().1 * anim2d::TILE_SZ) as f32;
         if is_on_x && is_on_y {
             return Some(i);
         }

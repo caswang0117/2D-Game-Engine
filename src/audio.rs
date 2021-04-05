@@ -1,3 +1,6 @@
+use kira::arrangement::handle::ArrangementHandle;
+use kira::arrangement::Arrangement;
+use kira::arrangement::LoopArrangementSettings;
 use kira::instance::handle::InstanceHandle;
 use kira::instance::InstanceSettings;
 use kira::instance::InstanceState;
@@ -7,7 +10,7 @@ use kira::parameter::tween::Tween;
 use kira::sound::handle::SoundHandle;
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
-pub struct SoundID(usize);
+pub struct SoundID(pub usize);
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum AlreadyPlayingAction {
@@ -21,6 +24,7 @@ pub struct Audio {
     pub manager: AudioManager,
     pub sound_handles: Vec<SoundHandle>,
     pub instance_handles: Vec<Vec<InstanceHandle>>,
+    pub arrangement_handles: Vec<Vec<ArrangementHandle>>, // for looping sounds
 }
 
 impl Audio {
@@ -30,10 +34,15 @@ impl Audio {
         for _i in 0..num_sounds {
             instance_handles.push(vec![]);
         }
+        let mut arrangement_handles = vec![];
+        for _i in 0..num_sounds {
+            arrangement_handles.push(vec![]);
+        }
         Self {
             manager,
             sound_handles,
             instance_handles,
+            arrangement_handles,
         }
     }
 
@@ -45,12 +54,17 @@ impl Audio {
         action: AlreadyPlayingAction,
     ) {
         let settings = InstanceSettings::default();
-        if loops {
-            settings.loop_start(loop_start.unwrap());
-        }
         if self.instance_handles[id.0].is_empty() {
             // if sound is not currently playing, play it and add the instance to self
-            if let Ok(instance_handle) = self.sound_handles[id.0].play(settings) {
+            let instance_handle = if !loops {
+                self.sound_handles[id.0].play(settings)
+            } else {
+                let sound = &self.sound_handles[id.0];
+                let arrangement = Arrangement::new_loop(sound, LoopArrangementSettings::default());
+                let mut arrangement_handle = self.manager.add_arrangement(arrangement).unwrap();
+                arrangement_handle.play(InstanceSettings::default())
+            };
+            if let Ok(instance_handle) = instance_handle {
                 self.instance_handles[id.0].push(instance_handle);
             }
         } else {
