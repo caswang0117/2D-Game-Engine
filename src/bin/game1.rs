@@ -50,6 +50,8 @@ struct GameState {
     font: Rc<Font>,
     level: usize,
     text: Vec<Text>,
+    audio: Audio,
+    rects: Vec<Rect>,
 }
 
 // seconds per frame
@@ -170,20 +172,32 @@ fn main() {
         ],
     );
     let mut audio_manager = AudioManager::new(AudioManagerSettings::default()).unwrap();
-    let space = audio_manager
+    let startscreen = audio_manager
         .load_sound(
-            "content/test_audio.mp3",
+            "content/Startscreen.wav",
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
+    let gameplay = audio_manager
+        .load_sound(
+            "content/GamePlay.mp3",
             SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
         )
         .unwrap();
-    let rocket = audio_manager
+    // let endscreen = audio_manager
+    //     .load_sound(
+    //         "content/endscreen.mp3",
+    //         SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+    //     )
+    //     .unwrap();
+    let collision = audio_manager
         .load_sound(
-            "content/rocket.wav",
+            "content/collision.mp3",
             SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
         )
         .unwrap();
-    let sound_handles = vec![space, rocket];
-    let mut audio = Audio::new(audio_manager, sound_handles);
+    let sound_handles = vec![startscreen, gameplay, collision];
+    let audio = Audio::new(audio_manager, sound_handles);
 
     let meteors = Tilemap::new(
         Vec2f(METEOR_START as f32, 0.0),
@@ -198,12 +212,6 @@ fn main() {
         (64, 8),
         &tileset,
         Tilemap::generate_rand_map_2(0.95, (64, 8), TileID(8), TileID(7)),
-    );
-
-    let space = Background::new(
-        &Rc::new(Texture::with_file(Path::new("content/space.png"))),
-        WIDTH,
-        HEIGHT,
     );
 
     let walk_frames = Rectf::create_frames(3, 7, PLAYER_WIDTH, PLAYER_HEIGHT);
@@ -228,18 +236,6 @@ fn main() {
     // let player_clone = player.clone();
     // let player_x = player.position.0;
     // let player_y = player.position.1;
-    let ground = Obstacle {
-        image: None,
-        frame: None,
-        tile_id: None,
-        rect: Some(Rect {
-            x: 0,
-            y: 200,
-            h: 56,
-            w: 2048,
-        }),
-        destroyed: false,
-    };
     let sprites = vec![player];
 
     let font = Rc::new(Font {
@@ -313,6 +309,15 @@ fn main() {
     let display_text = vec![
         text1, text2, text3, text4, text5, text6, text7, text8, text9, text10, text11, text12,
     ];
+
+    let title_rect = Rect {
+        x: 100,
+        y: 200,
+        w: 400,
+        h: 20,
+    };
+    let rects = vec![title_rect];
+
     let mut state = GameState {
         // initial game state...
         animations,
@@ -329,6 +334,8 @@ fn main() {
         font,
         level: 0,
         text: display_text,
+        audio,
+        rects,
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -340,9 +347,6 @@ fn main() {
     let start = Instant::now();
     // Track end of the last frame
     let mut since = Instant::now();
-
-    audio.play(SoundID(0), false, None, AlreadyPlayingAction::Nothing);
-    audio.play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
 
     event_loop.run(move |event, _, control_flow| {
         // Draw the current frame
@@ -409,6 +413,8 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 "Press enter to start",
                 Vec2f(100.0, 200.0),
             );
+
+            screen.rect(state.rects[0], Rgba(0, 0, 0, 0));
 
             screen.draw_text(&mut start_text);
         }
@@ -495,11 +501,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
         }
         Mode::EndGame => {
             screen.draw_background(&state.backgrounds[1]);
-            let mut game_over = Text::new(
-                state.font.clone(),
-                "GAME OVER",
-                Vec2f(175.0, 90.0),
-            );
+            let mut game_over = Text::new(state.font.clone(), "GAME OVER", Vec2f(175.0, 90.0));
 
             let mut try_again = Text::new(
                 state.font.clone(),
@@ -507,25 +509,39 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 Vec2f(70.0, 130.0),
             );
 
-            screen.rect(Rect{w:164, h:30, x: 164, y: 82}, Rgba(215,0,0,255));
-            screen.line(Vec2f(160.0, 82.0), Vec2f(160.0,112.0), Rgba(215,0,0,255));
-            screen.line(Vec2f(156.0, 82.0), Vec2f(156.0,112.0), Rgba(215,0,0,255));
-            screen.line(Vec2f(336.0, 82.0), Vec2f(336.0,112.0), Rgba(215,0,0,255));
+            screen.rect(
+                Rect {
+                    w: 164,
+                    h: 30,
+                    x: 164,
+                    y: 82,
+                },
+                Rgba(215, 0, 0, 255),
+            );
+            screen.line(
+                Vec2f(160.0, 82.0),
+                Vec2f(160.0, 112.0),
+                Rgba(215, 0, 0, 255),
+            );
+            screen.line(
+                Vec2f(156.0, 82.0),
+                Vec2f(156.0, 112.0),
+                Rgba(215, 0, 0, 255),
+            );
+            screen.line(
+                Vec2f(332.0, 82.0),
+                Vec2f(336.0, 112.0),
+                Rgba(215, 0, 0, 255),
+            );
+            screen.line(
+                Vec2f(336.0, 82.0),
+                Vec2f(336.0, 112.0),
+                Rgba(215, 0, 0, 255),
+            );
 
             screen.draw_text(&mut game_over);
             screen.draw_text(&mut try_again);
         }
-        // screen.bitblt(
-        //     &state.textures[3],
-        //     Rect {
-        //         x: 0,
-        //         y: 0,
-        //         w: 512,
-        //         h: 512,
-        //     },
-        //     Vec2f(0.0, 0.0),
-        // ),
-        
     }
 }
 
@@ -537,18 +553,19 @@ fn update_game(
 ) {
     match state.mode {
         Mode::TitleScreen => {
+            state
+                .audio
+                .play(SoundID(0), false, None, AlreadyPlayingAction::Nothing);
+
             if input.key_held(VirtualKeyCode::Return) {
                 state.mode = Mode::GamePlay
             }
         }
         Mode::GamePlay => {
-            // Player control goes here
-            // if input.key_held(VirtualKeyCode::Right) {
-            //     state.sprites[0].rect.x += 2;
-            // }
-            // if input.key_held(VirtualKeyCode::Left) {
-            //     state.sprites[0].rect.x -= 2;
-            // }
+            state
+                .audio
+                .play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
+
             if !&state.sprites[0].on_screen(state.camera_position, HEIGHT, WIDTH) {
                 state.mode = Mode::EndGame;
             };
@@ -580,6 +597,10 @@ fn update_game(
             // Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
         }
         Mode::EndGame => {
+            // state
+            //     .audio
+            //     .play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
+
             state.camera_position = Vec2f(0.0, 0.0);
             state.camera_speed = START_SPEED;
             state.level = 0;
@@ -690,6 +711,9 @@ fn tile_collision(state: &mut GameState) {
         if let Some(i) = map_idx {
             if let Some(t) = state.obstacle_tilemaps[i].tile_at(posn) {
                 if t.solid {
+                    state
+                        .audio
+                        .play(SoundID(2), false, None, AlreadyPlayingAction::Nothing);
                     state.mode = Mode::EndGame
                 }
             }
