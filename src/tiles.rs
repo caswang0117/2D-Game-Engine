@@ -10,6 +10,8 @@ pub const TILE_SZ: usize = 32;
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Tile {
     pub solid: bool, // ... any extra data like collision flags or other properties
+    pub explode: bool,
+    pub destructible: bool,
 }
 
 /// A set of tiles used in multiple Tilemaps
@@ -136,6 +138,69 @@ impl Tilemap {
             y
         );
         self.map[y as usize * self.dims.0 + x as usize]
+    }
+
+    pub fn tile_index(&self, Vec2f(x, y): Vec2f) -> usize {
+        assert!(
+            // x >= 0.0 && x < self.dims.0 as f32,
+            x >= self.position.0 && x <= self.position.0 + (self.dims.0 * TILE_SZ) as f32,
+            "Tile X coordinate {} out of bounds {}, {}",
+            x,
+            self.position.0,
+            self.position.0 + (self.dims.0 * TILE_SZ) as f32
+        );
+        assert!(
+            y >= self.position.1 && y <= self.position.1 + (self.dims.1 * TILE_SZ) as f32,
+            "Tile Y coordinate {} out of bounds {}, {}",
+            y,
+            self.position.1,
+            self.position.1 + (self.dims.1 * TILE_SZ) as f32
+        );
+        let x = ((x - self.position.0) / TILE_SZ as f32).floor(); // gets into world coordinates in frame of tile map
+        let y = ((y - self.position.1) / TILE_SZ as f32).floor().min(31.0);
+        assert!(
+            (y as usize * self.dims.0 + x as usize) as usize <= self.map.len() - 1,
+            "x coord: {}, y coord: {}",
+            x,
+            y
+        );
+        return y as usize * self.dims.0 + x as usize;
+    }
+
+    pub fn replace_tile(&mut self, index: usize, tile: TileID) {
+        self.map[index] = tile;
+    }
+
+    pub fn explode_tiles(&mut self, index: usize, new_tile: TileID, posn: Vec2f) {
+        self.map[index] = new_tile;
+        // let l = Vec2f(posn.0 - TILE_SZ as f32 + 0.2, posn.1);
+        // let r = Vec2f(posn.0 + TILE_SZ as f32 - 0.2, posn.1);
+        // let t = Vec2f(posn.0, posn.1 - TILE_SZ as f32 + 0.2);
+        let b = Vec2f(posn.0, posn.1 + TILE_SZ as f32 - 0.2);
+
+        // let tl = Vec2f(posn.0 - TILE_SZ as f32 + 0.2, posn.1 - TILE_SZ as f32 + 0.2);
+        // let tr = Vec2f(posn.0 + TILE_SZ as f32 - 0.2, posn.1 - TILE_SZ as f32 + 0.2);
+        let bl = Vec2f(posn.0 - TILE_SZ as f32 + 0.2, posn.1 + TILE_SZ as f32 + 0.2);
+        let br = Vec2f(posn.0 + TILE_SZ as f32 - 0.2, posn.1 + TILE_SZ as f32 + 0.2);
+
+        // let posns = vec![l, r, t, b, tl, tr, bl, br];
+        let posns = vec![b, bl, br];
+        let mut indices = vec![];
+        for posn in posns.clone() {
+            indices.push(self.tile_index(posn));
+        }
+
+        for (x, i) in indices.iter().enumerate() {
+            if i < &self.map.len() {
+                let tile = self.tileset[self.map[*i]];
+                if tile.destructible {
+                    self.map[*i] = new_tile;
+                }
+                if tile.explode {
+                    self.explode_tiles(*i, new_tile, posns[x]);
+                }
+            }
+        }
     }
 
     pub fn size(&self) -> (usize, usize) {

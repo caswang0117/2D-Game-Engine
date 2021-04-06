@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use anim2d::scores::Score;
 use anim2d::scores::Scores;
 use anim2d::collision::*;
@@ -42,16 +43,15 @@ struct GameState {
     sprites: Vec<Sprite>,
     backgrounds: Vec<Background>,
     curr_location: usize,
-    obstacles: Vec<Obstacle>,
-    bg_tilemaps: Vec<Rc<Tilemap>>,
-    obstacle_tilemaps: Vec<Rc<Tilemap>>,
+    bg_tilemaps: Vec<Rc<RefCell<Tilemap>>>,
     camera_position: Vec2f,
     camera_speed: f32,
     mode: Mode,
     font: Rc<Font>,
     level: usize,
     text: Vec<Text>,
-    scores: Scores
+    scores: Scores,
+    start: Instant
 }
 
 // seconds per frame
@@ -60,8 +60,8 @@ const DT: f64 = 1.0 / 60.0;
 const WIDTH: usize = 512;
 const HEIGHT: usize = 1024;
 const DEPTH: usize = 4;
-const PLAYER_WIDTH: u16 = 96;
-const PLAYER_HEIGHT: u16 = 96;
+const PLAYER_WIDTH: u16 = 64;
+const PLAYER_HEIGHT: u16 = 64;
 const FONT_SIZE: f32 = 20.0;
 const START_P: f32 = 0.97;
 const START_SPEED: f32 = 0.5;
@@ -109,12 +109,12 @@ fn main() {
     );
     let tileset = Rc::new(Tileset::new(
         vec![
-            Tile { solid: false }, // dirt
-            Tile { solid: true },  // rock
-            Tile { solid: true },  // skull
-            Tile { solid: false }, // dynamite
-            Tile { solid: false }, // water
-            Tile { solid: true }, // walls
+            Tile { solid: false, explode: false, destructible: true}, // dirt
+            Tile { solid: true, explode: false, destructible: true },  // rock
+            Tile { solid: true, explode: false, destructible: true },  // skull
+            Tile { solid: false, explode: false, destructible: true }, // dynamite
+            Tile { solid: false, explode: false, destructible: true }, // water
+            Tile { solid: true, explode: false, destructible: false }, // walls
         ],
         &tex,
     ));
@@ -346,6 +346,8 @@ fn main() {
     let mut scores = Scores::new("data/scores.json");
     scores.sort();
 
+    // Track beginning of play
+    let start_time = Instant::now();
     let mut state = GameState {
         // initial game state...
         animations,
@@ -353,16 +355,15 @@ fn main() {
         textures: vec![scuba],
         backgrounds: vec![start, end],
         curr_location: 0,
-        obstacles: vec![],
-        bg_tilemaps: vec![Rc::new(map1), Rc::new(map2), Rc::new(map3), Rc::new(map4)],
-        obstacle_tilemaps: vec![],
+        bg_tilemaps: vec![Rc::new(RefCell::new(map1)), Rc::new(RefCell::new(map2)), Rc::new(RefCell::new(map3)), Rc::new(RefCell::new(map4))],
         camera_position: Vec2f(0.0, 0.0),
         camera_speed: 0.0,
-        mode: Mode::EndGame,
+        mode: Mode::TitleScreen,
         font,
         level: 0,
         text: display_text,
-        scores
+        scores,
+        start: start_time
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -370,8 +371,6 @@ fn main() {
     let mut frame_count: usize = 0;
     // How many unsimulated frames have we saved up?
     let mut available_time = 0.0;
-    // Track beginning of play
-    let start = Instant::now();
     // Track end of the last frame
     let mut since = Instant::now();
     event_loop.run(move |event, _, control_flow| {
@@ -512,7 +511,6 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 ),
             ];
             let mut draw_bgmaps = vec![];
-            let mut draw_obsmaps = vec![];
             for posn in screen_corners {
                 if let Some(i) = tile_map_at(posn, &state.bg_tilemaps) {
                     let map = &state.bg_tilemaps[i];
@@ -520,51 +518,25 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                         draw_bgmaps.push(map);
                     }
                 }
-                if let Some(i) = tile_map_at(posn, &state.obstacle_tilemaps) {
-                    let map = &state.obstacle_tilemaps[i];
-                    if !draw_obsmaps.contains(&map) {
-                        draw_obsmaps.push(map);
-                    }
-                }
             }
 
             for map in draw_bgmaps {
+                let map = map.borrow();
                 map.draw(screen);
             }
-            for map in draw_obsmaps {
-                map.draw(screen);
-            }
-
-            //infinite tilemaps
-            update_tilemaps(
-                state.camera_position,
-                &mut state.bg_tilemaps,
-                false,
-                state.level,
-            );
-            // update_tilemaps(
-            //     state.camera_position,
-            //     &mut state.obstacle_tilemaps,
-            //     true,
-            //     state.level,
-            // );
 
             for s in state.sprites.iter() {
                 screen.draw_sprite(s);
             }
-            for o in state.obstacles.iter() {
-                screen.draw_obstacle(o);
-            }
 
-            // // Check screen position to update level
-            // let start_pos = (state.camera_position.0 - METEOR_START as f32).max(0.0);
-            // if start_pos as usize / LEVEL_WIDTH != state.level {
-            //     new_level(state);
-            // }
+            // start text
+            let mut time = Text::new(
+                state.font.clone(),
+                format!("{}", state.start.elapsed().as_secs()),
+                Vec2f(480.0, 100.0),
+            );
 
-            for text in &mut state.text {
-                screen.draw_text(text);
-            }
+            screen.draw_text(&mut time);
         }
         Mode::EndGame => {
             // screen.draw_background(&state.backgrounds[1]);
@@ -634,17 +606,22 @@ fn update_game(
 
             // change x position
             if input.key_pressed(VirtualKeyCode::Left) {
-                state.sprites[0].rect.x -= 2.0;
+                state.sprites[0].rect.x = (state.sprites[0].rect.x - 2.0).max(32.0);
             }
             if input.key_pressed(VirtualKeyCode::Right) {
-                state.sprites[0].rect.x += 2.0;
+                state.sprites[0].rect.x = (state.sprites[0].rect.x + 2.0).min(480.0);
             }
             if input.key_pressed(VirtualKeyCode::Down) {
                 state.sprites[0].rect.y += 2.0;
             }
 
-            // change y position
-            // state.sprites[0].rect.y += state.sprites[0].vy;
+            // reached bottom of game
+            if state.sprites[0].rect.y > 4096.0{
+                let time = state.start.elapsed().as_secs() as i16;
+                let score = Score { value: time };
+                state.scores.scores.push(score);
+                state.mode = Mode::EndGame;
+            }
 
             state.sprites[0].tick_forward();
 
@@ -668,13 +645,14 @@ fn update_game(
 
             let mut bg_tilemaps = vec![];
             for (i, map) in state.bg_tilemaps.iter().enumerate() {
+                let map = map.borrow();
                 let new = Tilemap {
                     position: Vec2f((i * WIDTH) as f32, 0.0),
                     dims: map.dims,
                     tileset: Rc::clone(&map.tileset),
                     map: map.map.clone(),
                 };
-                bg_tilemaps.push(Rc::new(new));
+                bg_tilemaps.push(Rc::new(RefCell::new(new)));
             }
 
             // let mut obstacle_tilemaps = vec![];
@@ -718,32 +696,32 @@ fn new_level(state: &mut GameState) {
 
 fn update_tilemaps(
     camera_position: Vec2f,
-    tilemaps: &mut Vec<Rc<Tilemap>>,
+    tilemaps: &mut Vec<Rc<RefCell<Tilemap>>>,
     is_obstacle: bool,
     level: usize,
 ) {
     let p = START_P - 0.03 * level as f32;
-    let first = &tilemaps[0];
+    let tm_clone = tilemaps.clone();
+    let first = tm_clone[0].borrow_mut();
     if first.position.1 as usize + first.size().1 * TILE_SZ < camera_position.1 as usize {
-        let last = tilemaps.last().unwrap();
-        let new: Tilemap;
-        if is_obstacle {
-            new = Tilemap::new(
+        let mut last = tm_clone.last().unwrap().borrow_mut();
+        let new = if is_obstacle {
+            Tilemap::new(
                 Vec2f(0.0, last.position.1 + last.size().1 as f32 * TILE_SZ as f32),
                 first.dims,
                 &Rc::clone(&first.tileset),
                 Tilemap::generate_rand_map_2(p, first.dims, TileID(8), TileID(7)),
-            );
+            )
         } else {
-            new = Tilemap {
+            Tilemap {
                 position: Vec2f(0.0, last.position.1 + last.size().1 as f32 * TILE_SZ as f32),
                 dims: first.dims,
                 tileset: Rc::clone(&first.tileset),
                 map: first.map.clone(),
-            };
-        }
+            }
+        };
         tilemaps.remove(0);
-        tilemaps.push(Rc::new(new));
+        tilemaps.push(Rc::new(RefCell::new(new)));
     }
 }
 
@@ -766,18 +744,26 @@ fn tile_collision(state: &mut GameState) {
     let mr = Vec2f(x + (state.sprites[0].rect.w) as f32/2.0 - 18.0, y + (state.sprites[0].rect.h as f32)/2.0);
     let posns = vec![tl, tr, bl, bm, br, ml, mr];
 
-    for posn in posns {
-        let map_idx = tile_map_at(posn, &state.bg_tilemaps);
+    for (j, posn) in posns.iter().enumerate() {
+        let map_idx = tile_map_at(*posn, &state.bg_tilemaps);
         if let Some(i) = map_idx {
-            if let Some(t) = state.bg_tilemaps[i].tile_at(posn) {
+            let mut map = state.bg_tilemaps[i].borrow_mut();
+            if let Some(t) = map.tile_at(*posn) {
                 if t.solid {
-                    if posn == tl || posn == ml {
+                    if *posn == tl || *posn == ml {
                         state.sprites[0].rect.x += 2.0;
-                    } else if posn == bl || posn == bm || posn == br {
+                    } else if *posn == bl || *posn == bm || *posn == br {
                         state.sprites[0].rect.y -= 2.0;
                     } else {
                         state.sprites[0].rect.x -= 2.0;
                     } 
+                }
+                if t.explode {
+                    let tindex = map.tile_index(*posn);
+                    map.explode_tiles(tindex, TileID(4), *posn); 
+                } else if (j == 2 || j == 3 || j == 4) && !t.solid {
+                    let tindex = map.tile_index(*posn);
+                    map.replace_tile(tindex, TileID(4)); 
                 }
             }
         }
@@ -813,8 +799,9 @@ fn update_camera(state: &mut GameState) {
     }
 }
 
-fn tile_map_at(posn: Vec2f, tilemaps: &Vec<Rc<Tilemap>>) -> Option<usize> {
+fn tile_map_at(posn: Vec2f, tilemaps: &Vec<Rc<RefCell<Tilemap>>>) -> Option<usize> {
     for (i, map) in tilemaps.iter().enumerate() {
+        let map = map.borrow();
         let is_on_x = posn.0 >= map.position.0
             && posn.0 <= map.position.0 + (map.size().0 * anim2d::TILE_SZ) as f32;
         let is_on_y = posn.1 >= map.position.1

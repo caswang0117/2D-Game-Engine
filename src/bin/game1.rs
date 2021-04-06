@@ -109,15 +109,51 @@ fn main() {
     );
     let tileset = Rc::new(Tileset::new(
         vec![
-            Tile { solid: false }, // dark
-            Tile { solid: false }, // star
-            Tile { solid: false }, // moon
-            Tile { solid: false }, // planet TL
-            Tile { solid: false }, // planet TR
-            Tile { solid: false }, // planet BL
-            Tile { solid: false }, // planet BR
-            Tile { solid: true },  // meteor
-            Tile { solid: false }, // transparent
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // dark
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // star
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // moon
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // planet TL
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // planet TR
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // planet BL
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // planet BR
+            Tile {
+                solid: true,
+                explode: false,
+                destructible: true,
+            }, // meteor
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // transparent
         ],
         &tex,
     ));
