@@ -1,10 +1,7 @@
 use kira::manager::AudioManager;
 use kira::manager::AudioManagerSettings;
 use kira::sound::SoundSettings;
-use kira::Tempo;
 use pixels::{Pixels, SurfaceTexture};
-use rand::distributions::{Bernoulli, Distribution};
-use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
@@ -70,11 +67,6 @@ const SPRITE_INITIAL_VX: f32 = 0.5;
 const SPRITE_INITIAL_VY: f32 = 0.0;
 const LEVEL_WIDTH: usize = 2048;
 const METEOR_START: f32 = 1400.0;
-// const METEOR_START: f32 = 100.0;
-
-const CLEAR_COL: Rgba = Rgba(32, 32, 64, 255);
-const WALL_COL: Rgba = Rgba(200, 200, 200, 255);
-const PLAYER_COL: Rgba = Rgba(255, 128, 128, 255);
 
 fn main() {
     let event_loop = EventLoop::new();

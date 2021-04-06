@@ -1,6 +1,9 @@
-use anim2d::collision::*;
+use anim2d::audio::{AlreadyPlayingAction, Audio, SoundID};
 use anim2d::scores::Score;
 use anim2d::scores::Scores;
+use kira::manager::AudioManager;
+use kira::manager::AudioManagerSettings;
+use kira::sound::SoundSettings;
 use pixels::{Pixels, SurfaceTexture};
 use std::cell::RefCell;
 use std::path::Path;
@@ -49,6 +52,7 @@ struct GameState {
     scores: Scores,
     start: Instant,
     og_tilemaps: Vec<Tilemap>,
+    audio: Audio,
 }
 
 // seconds per frame
@@ -283,8 +287,32 @@ fn main() {
     let original_map2 = map2.clone();
     let original_map3 = map3.clone();
     let original_map4 = map4.clone();
+
+    let mut audio_manager = AudioManager::new(AudioManagerSettings::default()).unwrap();
+    let startscreen = audio_manager
+        .load_sound(
+            "content/digstartscreen.mp3",
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
+    let gameplay = audio_manager
+        .load_sound(
+            "content/diggameplay.mp3",
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
+    let endscreen = audio_manager
+        .load_sound(
+            "content/digendscreen.mp3",
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
+    let sound_handles = vec![startscreen, gameplay, endscreen];
+    let audio = Audio::new(audio_manager, sound_handles);
+
     // Track beginning of play
     let start_time = Instant::now();
+
     let mut state = GameState {
         // initial game state...
         animations,
@@ -307,6 +335,7 @@ fn main() {
         scores,
         start: start_time,
         og_tilemaps: vec![original_map1, original_map2, original_map3, original_map4],
+        audio,
     };
 
     // How many frames have we simulated?
@@ -493,13 +522,25 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
 fn update_game(state: &mut GameState, input: &WinitInputHelper) {
     match state.mode {
         Mode::TitleScreen => {
+            state
+                .audio
+                .play(SoundID(0), false, None, AlreadyPlayingAction::Nothing);
+
             if input.key_held(VirtualKeyCode::Return) {
                 state.start = Instant::now();
+                state.audio.stop(SoundID(0), None);
+                state
+                    .audio
+                    .play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
                 state.mode = Mode::GamePlay;
             }
         }
         Mode::GamePlay => {
             if !&state.sprites[0].on_screen(state.camera_position, HEIGHT, WIDTH) {
+                state.audio.stop(SoundID(1), None);
+                state
+                    .audio
+                    .play(SoundID(2), true, Some(0.0), AlreadyPlayingAction::Nothing);
                 state.mode = Mode::EndGame;
             };
 
@@ -526,6 +567,11 @@ fn update_game(state: &mut GameState, input: &WinitInputHelper) {
                 state.scores.scores.push(score);
                 state.scores.sort();
                 state.scores.save("data/scores.json");
+
+                state.audio.stop(SoundID(1), None);
+                state
+                    .audio
+                    .play(SoundID(2), true, Some(0.0), AlreadyPlayingAction::Nothing);
                 state.mode = Mode::EndGame;
             }
 
@@ -541,6 +587,10 @@ fn update_game(state: &mut GameState, input: &WinitInputHelper) {
             state.sprites[0].rect.y = SPRITE_INITIAL_Y;
 
             if input.key_held(VirtualKeyCode::Return) {
+                state.audio.stop(SoundID(2), None);
+                state
+                    .audio
+                    .play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
                 state.start = Instant::now();
                 let mut bg_tilemaps = vec![];
                 for map in &state.og_tilemaps {
