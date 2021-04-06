@@ -2,9 +2,7 @@ use anim2d::collision::*;
 use anim2d::scores::Score;
 use anim2d::scores::Scores;
 use pixels::{Pixels, SurfaceTexture};
-use rand::distributions::{Bernoulli, Distribution};
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
@@ -16,8 +14,6 @@ use winit_input_helper::WinitInputHelper;
 
 use anim2d::animation::*;
 use anim2d::background::*;
-use anim2d::collision::*;
-use anim2d::obstacle::*;
 use anim2d::screen::Screen;
 use anim2d::sprite::*;
 use anim2d::text::*;
@@ -63,20 +59,9 @@ const HEIGHT: usize = 1024;
 const DEPTH: usize = 4;
 const PLAYER_WIDTH: u16 = 64;
 const PLAYER_HEIGHT: u16 = 64;
-const FONT_SIZE: f32 = 20.0;
-const START_P: f32 = 0.97;
 const START_SPEED: f32 = 0.5;
-const SPRITE_INITIAL_X: f32 = 50.0;
-const SPRITE_INITIAL_Y: f32 = 256.0;
-// const SPRITE_INITIAL_VX: f32 = 0.5;
-// const SPRITE_INITIAL_VY: f32 = 0.0;
-// const LEVEL_WIDTH: usize = 2048;
-// const METEOR_START: f32 = 1400.0;
-// const METEOR_START: f32 = 100.0;
-
-const CLEAR_COL: Rgba = Rgba(32, 32, 64, 255);
-const WALL_COL: Rgba = Rgba(200, 200, 200, 255);
-const PLAYER_COL: Rgba = Rgba(255, 128, 128, 255);
+const SPRITE_INITIAL_X: f32 = 60.0;
+const SPRITE_INITIAL_Y: f32 = 112.0;
 
 fn main() {
     let event_loop = EventLoop::new();
@@ -324,7 +309,6 @@ fn main() {
         og_tilemaps: vec![original_map1, original_map2, original_map3, original_map4],
     };
 
-    let mut contacts: Vec<Contact> = vec![];
     // How many frames have we simulated?
     let mut frame_count: usize = 0;
     // How many unsimulated frames have we saved up?
@@ -372,7 +356,7 @@ fn main() {
             // Eat up one frame worth of time
             available_time -= DT;
 
-            update_game(&mut state, &mut contacts, &input, frame_count);
+            update_game(&mut state, &input);
 
             // Increment the frame counter
             frame_count += 1;
@@ -506,12 +490,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
     }
 }
 
-fn update_game(
-    state: &mut GameState,
-    contacts: &mut Vec<Contact>,
-    input: &WinitInputHelper,
-    frame: usize,
-) {
+fn update_game(state: &mut GameState, input: &WinitInputHelper) {
     match state.mode {
         Mode::TitleScreen => {
             if input.key_held(VirtualKeyCode::Return) {
@@ -561,20 +540,6 @@ fn update_game(
             state.sprites[0].rect.x = SPRITE_INITIAL_X;
             state.sprites[0].rect.y = SPRITE_INITIAL_Y;
 
-            // let mut bg_tilemaps = vec![];
-            // for (i, map) in state.bg_tilemaps.iter().enumerate() {
-            //     let map = map.borrow();
-            //     let new = Tilemap {
-            //         position: Vec2f((i * WIDTH) as f32, 0.0),
-            //         dims: map.dims,
-            //         tileset: Rc::clone(&map.tileset),
-            //         map: map.map.clone(),
-            //     };
-            //     bg_tilemaps.push(Rc::new(RefCell::new(new)));
-            // }
-
-            // state.bg_tilemaps = bg_tilemaps;
-
             if input.key_held(VirtualKeyCode::Return) {
                 state.start = Instant::now();
                 let mut bg_tilemaps = vec![];
@@ -585,53 +550,6 @@ fn update_game(
                 state.mode = Mode::GamePlay;
             }
         }
-    }
-}
-
-fn new_level(state: &mut GameState) {
-    state.level += 1;
-    state.camera_speed += 0.2;
-    state.sprites[0].vx += 0.2;
-    let levelup = format!("LEVEL {}", state.level);
-
-    state.text.push(Text::new(
-        state.font.clone(),
-        &levelup,
-        Vec2f(
-            state.camera_position.0 + (WIDTH / 2) as f32,
-            (HEIGHT / 2) as f32,
-        ),
-    ));
-}
-
-fn update_tilemaps(
-    camera_position: Vec2f,
-    tilemaps: &mut Vec<Rc<RefCell<Tilemap>>>,
-    is_obstacle: bool,
-    level: usize,
-) {
-    let p = START_P - 0.03 * level as f32;
-    let tm_clone = tilemaps.clone();
-    let first = tm_clone[0].borrow_mut();
-    if first.position.1 as usize + first.size().1 * TILE_SZ < camera_position.1 as usize {
-        let mut last = tm_clone.last().unwrap().borrow_mut();
-        let new = if is_obstacle {
-            Tilemap::new(
-                Vec2f(0.0, last.position.1 + last.size().1 as f32 * TILE_SZ as f32),
-                first.dims,
-                &Rc::clone(&first.tileset),
-                Tilemap::generate_rand_map_2(p, first.dims, TileID(8), TileID(7)),
-            )
-        } else {
-            Tilemap {
-                position: Vec2f(0.0, last.position.1 + last.size().1 as f32 * TILE_SZ as f32),
-                dims: first.dims,
-                tileset: Rc::clone(&first.tileset),
-                map: first.map.clone(),
-            }
-        };
-        tilemaps.remove(0);
-        tilemaps.push(Rc::new(RefCell::new(new)));
     }
 }
 
@@ -685,27 +603,7 @@ fn tile_collision(state: &mut GameState) {
     }
 }
 
-fn scroll_camera(state: &mut GameState) {
-    state.camera_position.1 += state.camera_speed;
-}
-
 fn update_camera(state: &mut GameState) {
-    // right side
-    // if state.sprites[0].rect.x + PLAYER_WIDTH as f32 >= state.camera_position.0 + WIDTH as f32 - 5.0
-    // {
-    //     state.camera_position.0 += state.camera_speed;
-    // }
-
-    // // left side
-    // if state.sprites[0].rect.x <= state.camera_position.0 + 5.0 {
-    //     state.camera_position.0 -= state.camera_speed;
-    // }
-
-    // // top
-    // if state.sprites[0].rect.y <= state.camera_position.1 + 5.0 {
-    //     state.camera_position.1 -= state.camera_speed;
-    // }
-
     // bottom
     if state.sprites[0].rect.y + PLAYER_HEIGHT as f32
         >= state.camera_position.1 + HEIGHT as f32 - 700.0
