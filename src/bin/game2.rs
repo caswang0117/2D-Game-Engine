@@ -270,15 +270,6 @@ fn main() {
     let font = Rc::new(Font {
         image: Rc::new(Texture::with_file(Path::new("content/ascii.png"))),
     });
-    let text1 = Text::new(Rc::clone(&font), "It is March 25, 2021.", Vec2f(75.0, 50.0));
-
-    let text2 = Text::new(
-        Rc::clone(&font),
-        "The Ever Given is still",
-        Vec2f(text1.pos.0 + text1.length as f32 - 80.0, 150.0),
-    );
-
-    let display_text = vec![text1, text2];
 
     let mut scores = Scores::new("data/scores.json");
     scores.sort();
@@ -331,7 +322,7 @@ fn main() {
         mode: Mode::TitleScreen,
         font,
         level: 0,
-        text: display_text,
+        text: vec![],
         scores,
         start: start_time,
         og_tilemaps: vec![original_map1, original_map2, original_map3, original_map4],
@@ -503,7 +494,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
         }
         Mode::EndGame => {
             screen.draw_background(&state.backgrounds[1]);
-            let mut game_over = Text::new(state.font.clone(), "GAME OVER", Vec2f(175.0, 90.0));
+            let mut game_over = Text::new(state.font.clone(), "GAME OVER", Vec2f(175.0, 250.0));
 
             draw_scores(state, screen);
 
