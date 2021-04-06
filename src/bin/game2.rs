@@ -1,9 +1,9 @@
-use std::cell::RefCell;
+use anim2d::collision::*;
 use anim2d::scores::Score;
 use anim2d::scores::Scores;
-use anim2d::collision::*;
 use pixels::{Pixels, SurfaceTexture};
 use rand::distributions::{Bernoulli, Distribution};
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
@@ -51,7 +51,8 @@ struct GameState {
     level: usize,
     text: Vec<Text>,
     scores: Scores,
-    start: Instant
+    start: Instant,
+    og_tilemaps: Vec<Tilemap>,
 }
 
 // seconds per frame
@@ -109,12 +110,36 @@ fn main() {
     );
     let tileset = Rc::new(Tileset::new(
         vec![
-            Tile { solid: false, explode: false, destructible: true}, // dirt
-            Tile { solid: true, explode: false, destructible: true },  // rock
-            Tile { solid: true, explode: false, destructible: true },  // skull
-            Tile { solid: false, explode: false, destructible: true }, // dynamite
-            Tile { solid: false, explode: false, destructible: true }, // water
-            Tile { solid: true, explode: false, destructible: false }, // walls
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // dirt
+            Tile {
+                solid: true,
+                explode: false,
+                destructible: true,
+            }, // rock
+            Tile {
+                solid: true,
+                explode: false,
+                destructible: true,
+            }, // skull
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // dynamite
+            Tile {
+                solid: false,
+                explode: false,
+                destructible: true,
+            }, // water
+            Tile {
+                solid: true,
+                explode: false,
+                destructible: false,
+            }, // walls
         ],
         &tex,
     ));
@@ -123,39 +148,24 @@ fn main() {
         (16, 32),
         &tileset,
         vec![
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,2,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,3,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,1,0,0,5,
-            5,0,0,2,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,1,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,1,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,1,0,0,0,0,0,0,0,0,0,3,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,2,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,1,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,2,0,0,0,0,5,
-            5,0,1,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,1,5,
-            5,0,0,0,0,2,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-
+            5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0,
+            0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 5, 5, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+            5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 5, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
         ],
     );
 
@@ -164,39 +174,24 @@ fn main() {
         (16, 32),
         &tileset,
         vec![
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,2,0,0,0,0,0,5,
-            5,0,0,0,0,1,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,2,0,0,0,0,0,0,0,0,5,
-            5,0,1,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,3,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,1,0,0,0,0,2,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,1,0,0,5,
-            5,0,0,2,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,1,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,1,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,1,0,0,0,0,0,0,0,0,0,3,0,0,0,5,
-            5,0,0,0,0,1,0,0,0,0,0,0,0,1,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,2,0,0,2,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,1,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,2,0,0,0,0,5,
-            5,0,1,0,0,0,0,0,0,0,0,0,1,0,0,5,
-            5,0,0,0,0,3,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,1,0,0,0,0,0,5,
-            5,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,1,5,
-            5,0,0,0,0,2,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            
+            5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0,
+            0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 5, 5, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 5, 5, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+            5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0,
+            0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 5, 5, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 5, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+            5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 5, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
         ],
     );
 
@@ -205,38 +200,24 @@ fn main() {
         (16, 32),
         &tileset,
         vec![
-            5,0,0,0,0,0,0,0,0,0,0,0,1,0,0,5,
-            5,0,3,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,2,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,2,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,3,0,0,0,0,5,
-            5,0,0,0,1,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,2,0,0,1,0,0,5,
-            5,0,0,2,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,1,0,0,0,0,2,0,5,
-            5,0,0,0,0,0,0,1,0,0,0,0,0,0,0,5,
-            5,0,3,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,1,0,0,0,0,0,0,0,0,0,3,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,1,0,5,
-            5,0,0,0,2,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,1,0,0,0,5,
-            5,0,2,0,0,0,1,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,2,0,0,0,0,5,
-            5,0,1,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,2,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,1,0,0,0,5,
-            5,0,0,3,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,1,5,
-            5,0,0,0,0,2,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,2,0,5,
+            5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 5, 5, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 2, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0,
+            0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 5, 5, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0,
+            0, 1, 0, 0, 5, 5, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 5, 5, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 5, 5, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 5, 5, 0, 2, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 5, 5, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+            5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 5, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 5,
         ],
     );
     let map4 = Tilemap::new(
@@ -244,55 +225,26 @@ fn main() {
         (16, 32),
         &tileset,
         vec![
-            5,0,0,0,0,0,0,2,0,0,0,0,1,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,3,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,2,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,3,0,0,0,0,5,
-            5,0,0,3,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,2,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,1,0,0,5,
-            5,0,0,2,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,1,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,1,0,0,0,0,0,2,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,1,0,0,0,0,0,0,0,0,0,3,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,1,0,0,0,0,5,
-            5,0,1,0,2,0,0,0,0,0,0,1,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,1,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,2,0,0,0,0,5,
-            5,0,1,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,2,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
-            5,0,1,0,0,0,0,0,0,0,0,0,2,0,1,5,
-            5,0,0,0,0,2,0,0,0,0,0,0,0,0,0,5,
-            5,0,0,0,0,0,0,0,0,0,1,0,0,0,0,5,
+            5, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0,
+            0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 5, 5, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 5, 5, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 5, 5, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0,
+            0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+            5, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 5, 5, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 5,
         ],
     );
-
-    // let meteors = Tilemap::new(
-    //     Vec2f(METEOR_START as f32, 0.0),
-    //     (64, 8),
-    //     &tileset,
-    //     Tilemap::generate_rand_map_2(0.95, (64, 8), TileID(8), TileID(7)),
-    // );
-
-    // let meteors2 = Tilemap::new(
-    //     Vec2f(METEOR_START + (meteors.dims.0 * TILE_SZ) as f32, 0.0),
-    //     // Vec2f(3698.0, 0.0),
-    //     (64, 8),
-    //     &tileset,
-    //     Tilemap::generate_rand_map_2(0.95, (64, 8), TileID(8), TileID(7)),
-    // );
 
     let swim_frames = Rectf::create_frames(0, 4, PLAYER_WIDTH, PLAYER_HEIGHT);
     let swim_timing = vec![6, 6, 6, 6];
@@ -313,21 +265,6 @@ fn main() {
         0.0,
         0.0,
     );
-    // let player_clone = player.clone();
-    // let player_x = player.position.0;
-    // let player_y = player.position.1;
-    let ground = Obstacle {
-        image: None,
-        frame: None,
-        tile_id: None,
-        rect: Some(Rect {
-            x: 0,
-            y: 200,
-            h: 56,
-            w: 2048,
-        }),
-        destroyed: false,
-    };
     let sprites = vec![player];
 
     let start = Background::new(
@@ -357,6 +294,10 @@ fn main() {
     let mut scores = Scores::new("data/scores.json");
     scores.sort();
 
+    let original_map1 = map1.clone();
+    let original_map2 = map2.clone();
+    let original_map3 = map3.clone();
+    let original_map4 = map4.clone();
     // Track beginning of play
     let start_time = Instant::now();
     let mut state = GameState {
@@ -366,7 +307,12 @@ fn main() {
         textures: vec![scuba],
         backgrounds: vec![start, end],
         curr_location: 0,
-        bg_tilemaps: vec![Rc::new(RefCell::new(map1)), Rc::new(RefCell::new(map2)), Rc::new(RefCell::new(map3)), Rc::new(RefCell::new(map4))],
+        bg_tilemaps: vec![
+            Rc::new(RefCell::new(map1)),
+            Rc::new(RefCell::new(map2)),
+            Rc::new(RefCell::new(map3)),
+            Rc::new(RefCell::new(map4)),
+        ],
         camera_position: Vec2f(0.0, 0.0),
         camera_speed: 0.0,
         mode: Mode::TitleScreen,
@@ -374,7 +320,8 @@ fn main() {
         level: 0,
         text: display_text,
         scores,
-        start: start_time
+        start: start_time,
+        og_tilemaps: vec![original_map1, original_map2, original_map3, original_map4],
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -438,31 +385,39 @@ fn main() {
 }
 
 fn draw_scores(state: &mut GameState, screen: &mut Screen) {
-    // scores box 
+    // scores box
     let box_color = Rgba(115, 115, 115, 0);
     let r = Rect {
         x: 120,
-        y: 475, 
+        y: 475,
         w: 270,
-        h: 275
+        h: 275,
     };
     screen.rect(r, box_color);
-    screen.line(Vec2f(r.x as f32, r.y as f32 - 5.0), Vec2f(r.x as f32 + r.w as f32, r.y as f32 - 5.0), box_color);
-    screen.line(Vec2f(r.x as f32, (r.y + r.h as i32) as f32 + 5.0), Vec2f(r.x as f32 + r.w as f32, (r.y + r.h as i32) as f32 + 5.0), box_color);
+    screen.line(
+        Vec2f(r.x as f32, r.y as f32 - 5.0),
+        Vec2f(r.x as f32 + r.w as f32, r.y as f32 - 5.0),
+        box_color,
+    );
+    screen.line(
+        Vec2f(r.x as f32, (r.y + r.h as i32) as f32 + 5.0),
+        Vec2f(r.x as f32 + r.w as f32, (r.y + r.h as i32) as f32 + 5.0),
+        box_color,
+    );
 
     // scores text
     let mut scores_text = Text::new(
         state.font.clone(),
         "HIGH SCORES",
-        Vec2f(r.x as f32 + 40.0, r.y as f32 + 30.0)
+        Vec2f(r.x as f32 + 40.0, r.y as f32 + 30.0),
     );
     screen.draw_text(&mut scores_text);
 
     for (i, score) in state.scores.scores.iter().enumerate() {
         let mut score_text = Text::new(
             state.font.clone(),
-            format!("{}. {} seconds", i+1, score.value).as_str(),
-            Vec2f(r.x as f32 + 20.0, r.y as f32 + 40.0 + 35.0 * (i+1) as f32)
+            format!("{}. {} seconds", i + 1, score.value).as_str(),
+            Vec2f(r.x as f32 + 20.0, r.y as f32 + 40.0 + 35.0 * (i + 1) as f32),
         );
         screen.draw_text(&mut score_text);
     }
@@ -485,19 +440,8 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             );
 
             screen.draw_text(&mut start_text);
-
         }
         Mode::GamePlay => {
-            // levels[state.level].0.draw(screen);
-            // for ((pos, tex), anim) in state
-            //     .positions
-            //     .iter()
-            //     .zip(state.textures.iter())
-            //     .zip(state.anim_state.iter())
-            // {
-            //     screen.bitblt(tex, anim.frame(), *pos);
-            // }
-            // screen.draw_background(&state.backgrounds[state.curr_location]);
             let screen_corners = vec![
                 Vec2f(state.camera_position.0, state.camera_position.1),
                 Vec2f(
@@ -536,47 +480,29 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             let mut time = Text::new(
                 state.font.clone(),
                 format!("TIME: {}", state.start.elapsed().as_secs()).as_str(),
-                Vec2f(40.0 + state.camera_position.0, 60.0 + state.camera_position.1),
+                Vec2f(
+                    40.0 + state.camera_position.0,
+                    60.0 + state.camera_position.1,
+                ),
             );
-
 
             screen.draw_text(&mut time);
         }
         Mode::EndGame => {
             screen.draw_background(&state.backgrounds[1]);
-            let mut game_over = Text::new(
-                state.font.clone(),
-                "GAME OVER",
-                Vec2f(175.0, 90.0),
-            );
+            let mut game_over = Text::new(state.font.clone(), "GAME OVER", Vec2f(175.0, 90.0));
 
             draw_scores(state, screen);
 
             let mut try_again = Text::new(
                 state.font.clone(),
-                "Press enter to start",
-                Vec2f(100.0, 850.0),
+                "Press enter to play again",
+                Vec2f(70.0, 850.0),
             );
-
-            // screen.rect(Rect{w:164, h:30, x: 164, y: 82}, Rgba(215,0,0,255));
-            // screen.line(Vec2f(160.0, 82.0), Vec2f(160.0,112.0), Rgba(215,0,0,255));
-            // screen.line(Vec2f(156.0, 82.0), Vec2f(156.0,112.0), Rgba(215,0,0,255));
-            // screen.line(Vec2f(336.0, 82.0), Vec2f(336.0,112.0), Rgba(215,0,0,255));
 
             screen.draw_text(&mut game_over);
             screen.draw_text(&mut try_again);
         }
-        // screen.bitblt(
-        //     &state.textures[3],
-        //     Rect {
-        //         x: 0,
-        //         y: 0,
-        //         w: 512,
-        //         h: 512,
-        //     },
-        //     Vec2f(0.0, 0.0),
-        // ),
-        
     }
 }
 
@@ -589,24 +515,16 @@ fn update_game(
     match state.mode {
         Mode::TitleScreen => {
             if input.key_held(VirtualKeyCode::Return) {
-                state.mode = Mode::GamePlay
+                state.start = Instant::now();
+                state.mode = Mode::GamePlay;
             }
         }
         Mode::GamePlay => {
-            // Player control goes here
-            // if input.key_held(VirtualKeyCode::Right) {
-            //     state.sprites[0].rect.x += 2;
-            // }
-            // if input.key_held(VirtualKeyCode::Left) {
-            //     state.sprites[0].rect.x -= 2;
-            // }
             if !&state.sprites[0].on_screen(state.camera_position, HEIGHT, WIDTH) {
                 state.mode = Mode::EndGame;
             };
 
             tile_collision(state);
-
-            // state.sprites[0].rect.x += state.sprites[0].vx;
 
             // change x position
             if input.key_pressed(VirtualKeyCode::Left) {
@@ -623,62 +541,47 @@ fn update_game(
             }
 
             // reached bottom of game
-            if state.sprites[0].rect.y > 4096.0{
+            if state.sprites[0].rect.y > 4096.0 {
                 let time = state.start.elapsed().as_secs() as i16;
                 let score = Score { value: time };
                 state.scores.scores.push(score);
+                state.scores.sort();
+                state.scores.save("data/scores.json");
                 state.mode = Mode::EndGame;
             }
 
             state.sprites[0].tick_forward();
 
             update_camera(state);
-
-            // Detect collisions: Generate contacts
-            // contacts.clear();
-            // Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
-
-            // Handle collisions: Apply restitution impulses.
-            // Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
         }
         Mode::EndGame => {
             state.camera_position = Vec2f(0.0, 0.0);
             state.camera_speed = START_SPEED;
             state.level = 0;
-            // state.sprites[0].vx = SPRITE_INITIAL_VX;
-            // state.sprites[0].vy = SPRITE_INITIAL_VY;
             state.sprites[0].rect.x = SPRITE_INITIAL_X;
             state.sprites[0].rect.y = SPRITE_INITIAL_Y;
 
-            let mut bg_tilemaps = vec![];
-            for (i, map) in state.bg_tilemaps.iter().enumerate() {
-                let map = map.borrow();
-                let new = Tilemap {
-                    position: Vec2f((i * WIDTH) as f32, 0.0),
-                    dims: map.dims,
-                    tileset: Rc::clone(&map.tileset),
-                    map: map.map.clone(),
-                };
-                bg_tilemaps.push(Rc::new(RefCell::new(new)));
-            }
-
-            // let mut obstacle_tilemaps = vec![];
-            // for (i, map) in state.obstacle_tilemaps.iter().enumerate() {
-            //     let new = Tilemap::new(
-            //         Vec2f(METEOR_START + map.dims.0 as f32 * TILE_SZ as f32 * i as f32, 0.0),
-            //         map.dims,
-            //         &Rc::clone(&map.tileset),
-            //         // Tilemap::generate_rand_map_2(START_P, map.dims, TileID(8), TileID(7)),
-            //     );
-            //    obstacle_tilemaps.push(Rc::new(new));
+            // let mut bg_tilemaps = vec![];
+            // for (i, map) in state.bg_tilemaps.iter().enumerate() {
+            //     let map = map.borrow();
+            //     let new = Tilemap {
+            //         position: Vec2f((i * WIDTH) as f32, 0.0),
+            //         dims: map.dims,
+            //         tileset: Rc::clone(&map.tileset),
+            //         map: map.map.clone(),
+            //     };
+            //     bg_tilemaps.push(Rc::new(RefCell::new(new)));
             // }
 
-            state.bg_tilemaps = bg_tilemaps;
-            // state.obstacle_tilemaps = obstacle_tilemaps;
+            // state.bg_tilemaps = bg_tilemaps;
 
             if input.key_held(VirtualKeyCode::Return) {
-                //     state.positions[0] = Vec2i(levels[0].1[0].1 * 16, levels[0].1[0].2 * 16);
-                //     state.velocities[0] = Vec2i(0, 0);
+                state.start = Instant::now();
+                let mut bg_tilemaps = vec![];
+                for map in &state.og_tilemaps {
+                    bg_tilemaps.push(Rc::new(RefCell::new(map.clone())));
+                }
+                state.bg_tilemaps = bg_tilemaps;
                 state.mode = Mode::GamePlay;
             }
         }
@@ -739,7 +642,10 @@ fn tile_collision(state: &mut GameState) {
     let tl = Vec2f(x + 18.0, y);
     let tr = Vec2f(x + state.sprites[0].rect.w as f32 - 18.0, y);
     let bl = Vec2f(x + 18.0, y + state.sprites[0].rect.h as f32);
-    let bm = Vec2f(x + (state.sprites[0].rect.w) as f32/2.0, y + state.sprites[0].rect.h as f32);
+    let bm = Vec2f(
+        x + (state.sprites[0].rect.w) as f32 / 2.0,
+        y + state.sprites[0].rect.h as f32,
+    );
     let br = Vec2f(
         x + state.sprites[0].rect.w as f32 - 10.0,
         y + state.sprites[0].rect.h as f32,
@@ -748,7 +654,10 @@ fn tile_collision(state: &mut GameState) {
         x + state.sprites[0].rect.w as f32 + 18.0,
         (y + state.sprites[0].rect.h as f32) as f32 / 2.0,
     );
-    let mr = Vec2f(x + (state.sprites[0].rect.w) as f32/2.0 - 18.0, y + (state.sprites[0].rect.h as f32)/2.0);
+    let mr = Vec2f(
+        x + (state.sprites[0].rect.w) as f32 / 2.0 - 18.0,
+        y + (state.sprites[0].rect.h as f32) / 2.0,
+    );
     let posns = vec![tl, tr, bl, bm, br, ml, mr];
 
     for (j, posn) in posns.iter().enumerate() {
@@ -763,13 +672,13 @@ fn tile_collision(state: &mut GameState) {
                         state.sprites[0].rect.x -= 2.0;
                     } else if *posn == bl || *posn == bm || *posn == br {
                         state.sprites[0].rect.y -= 2.0;
-                    } 
+                    }
                 } else if t.explode {
                     let tindex = map.tile_index(*posn);
-                    map.explode_tiles(tindex, TileID(4), *posn); 
+                    map.explode_tiles(tindex, TileID(4), *posn);
                 } else if (j == 2 || j == 3 || j == 4) && !t.solid {
                     let tindex = map.tile_index(*posn);
-                    map.replace_tile(tindex, TileID(4)); 
+                    map.replace_tile(tindex, TileID(4));
                 }
             }
         }

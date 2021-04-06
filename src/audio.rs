@@ -91,6 +91,7 @@ impl Audio {
             settings.fade_tween(tween);
         }
         // stop sound and remove all instances
+        let stop = self.sound_handles[id.0].stop(settings);
         if self.sound_handles[id.0].stop(settings).is_ok() {
             self.instance_handles[id.0] = vec![];
         };

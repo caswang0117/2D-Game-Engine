@@ -63,7 +63,7 @@ impl Tileset {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 /// An actual tilemap
 pub struct Tilemap {
     /// Whce the tilemap is in space, use your favorite number type here
