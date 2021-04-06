@@ -26,17 +26,6 @@ impl Obstacle {
             destroyed: false,
         }
     }
-    // match tile{
-    //     Some(id) => {
-    //         Self{
-    //             image,
-    //             tile_id: Some(id),
-    //             rect: Some(rect.unwrap()),
-    //             destroyed: false,
-    //         }
-    //     }
-    //     None => Err("Invalid tile ID")
-    // }
 }
 
 pub trait DrawObstacleExt {

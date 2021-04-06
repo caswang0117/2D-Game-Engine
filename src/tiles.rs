@@ -63,7 +63,7 @@ impl Tileset {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 /// An actual tilemap
 pub struct Tilemap {
     /// Whce the tilemap is in space, use your favorite number type here
@@ -113,9 +113,7 @@ impl Tilemap {
 
     pub fn tile_id_at(&self, Vec2f(x, y): Vec2f) -> TileID {
         // Translate into map coordinates
-        // println!("player x: {}, map x: {}", x, self.position.0);
         assert!(
-            // x >= 0.0 && x < self.dims.0 as f32,
             x >= self.position.0 && x <= self.position.0 + (self.dims.0 * TILE_SZ) as f32,
             "Tile X coordinate {} out of bounds {}, {}",
             x,
@@ -173,17 +171,10 @@ impl Tilemap {
 
     pub fn explode_tiles(&mut self, index: usize, new_tile: TileID, posn: Vec2f) {
         self.map[index] = new_tile;
-        // let l = Vec2f(posn.0 - TILE_SZ as f32 + 0.2, posn.1);
-        // let r = Vec2f(posn.0 + TILE_SZ as f32 - 0.2, posn.1);
-        // let t = Vec2f(posn.0, posn.1 - TILE_SZ as f32 + 0.2);
         let b = Vec2f(posn.0, posn.1 + TILE_SZ as f32 - 0.2);
-
-        // let tl = Vec2f(posn.0 - TILE_SZ as f32 + 0.2, posn.1 - TILE_SZ as f32 + 0.2);
-        // let tr = Vec2f(posn.0 + TILE_SZ as f32 - 0.2, posn.1 - TILE_SZ as f32 + 0.2);
         let bl = Vec2f(posn.0 - TILE_SZ as f32 + 0.2, posn.1 + TILE_SZ as f32 + 0.2);
         let br = Vec2f(posn.0 + TILE_SZ as f32 - 0.2, posn.1 + TILE_SZ as f32 + 0.2);
 
-        // let posns = vec![l, r, t, b, tl, tr, bl, br];
         let posns = vec![b, bl, br];
         let mut indices = vec![];
         for posn in posns.clone() {
@@ -208,17 +199,6 @@ impl Tilemap {
     }
 
     pub fn tile_at(&self, posn: Vec2f) -> Option<Tile> {
-        // let Vec2f(x, y) = posn;
-        // let x = (x - self.position.0) / TILE_SZ as f32; // gets into world coordinates in frame of tile map
-        // let y = (y - self.position.1) / TILE_SZ as f32;
-        // println!(
-        //     "x is out of bounds: {}, pos x: {}, pos y: {}, map x: {}, map y: {}",
-        //     posn.0 >= self.position.0 && posn.0 < self.position.0 + (self.dims.0 * TILE_SZ) as f32,
-        //     posn.0,
-        //     posn.1,
-        //     self.position.0,
-        //     self.position.1
-        // );
         if (posn.0 >= self.position.0 && posn.0 < self.position.0 + (self.dims.0 * TILE_SZ) as f32)
             || (posn.1 >= self.position.1
                 && posn.1 <= self.position.1 + (self.dims.1 * TILE_SZ) as f32)

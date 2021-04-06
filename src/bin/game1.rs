@@ -51,7 +51,6 @@ struct GameState {
     level: usize,
     text: Vec<Text>,
     audio: Audio,
-    rects: Vec<Rect>,
 }
 
 // seconds per frame
@@ -217,22 +216,22 @@ fn main() {
     let gameplay = audio_manager
         .load_sound(
             "content/GamePlay.mp3",
-            SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
         )
         .unwrap();
-    // let endscreen = audio_manager
-    //     .load_sound(
-    //         "content/endscreen.mp3",
-    //         SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
-    //     )
-    //     .unwrap();
+    let endscreen = audio_manager
+        .load_sound(
+            "content/endscreen.mp3",
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+        )
+        .unwrap();
     let collision = audio_manager
         .load_sound(
             "content/collision.mp3",
-            SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
+            SoundSettings::default(), // SoundSettings::new().semantic_duration(Tempo(128.0).beats_to_seconds(8.0)),
         )
         .unwrap();
-    let sound_handles = vec![startscreen, gameplay, collision];
+    let sound_handles = vec![startscreen, gameplay, collision, endscreen];
     let audio = Audio::new(audio_manager, sound_handles);
 
     let meteors = Tilemap::new(
@@ -346,14 +345,6 @@ fn main() {
         text1, text2, text3, text4, text5, text6, text7, text8, text9, text10, text11, text12,
     ];
 
-    let title_rect = Rect {
-        x: 100,
-        y: 200,
-        w: 400,
-        h: 20,
-    };
-    let rects = vec![title_rect];
-
     let mut state = GameState {
         // initial game state...
         animations,
@@ -371,7 +362,6 @@ fn main() {
         level: 0,
         text: display_text,
         audio,
-        rects,
     };
 
     let mut contacts: Vec<Contact> = vec![];
@@ -450,21 +440,9 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
                 Vec2f(100.0, 200.0),
             );
 
-            screen.rect(state.rects[0], Rgba(0, 0, 0, 0));
-
             screen.draw_text(&mut start_text);
         }
         Mode::GamePlay => {
-            // levels[state.level].0.draw(screen);
-            // for ((pos, tex), anim) in state
-            //     .positions
-            //     .iter()
-            //     .zip(state.textures.iter())
-            //     .zip(state.anim_state.iter())
-            // {
-            //     screen.bitblt(tex, anim.frame(), *pos);
-            // }
-            // screen.draw_background(&state.backgrounds[state.curr_location]);
             let screen_corners = vec![
                 Vec2f(state.camera_position.0, state.camera_position.1),
                 Vec2f(
@@ -566,7 +544,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             );
             screen.line(
                 Vec2f(332.0, 82.0),
-                Vec2f(336.0, 112.0),
+                Vec2f(332.0, 112.0),
                 Rgba(215, 0, 0, 255),
             );
             screen.line(
@@ -594,6 +572,7 @@ fn update_game(
                 .play(SoundID(0), false, None, AlreadyPlayingAction::Nothing);
 
             if input.key_held(VirtualKeyCode::Return) {
+                state.audio.stop(SoundID(0), None);
                 state.mode = Mode::GamePlay
             }
         }
@@ -603,6 +582,10 @@ fn update_game(
                 .play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
 
             if !&state.sprites[0].on_screen(state.camera_position, HEIGHT, WIDTH) {
+                state.audio.stop(SoundID(1), None);
+                state
+                    .audio
+                    .play(SoundID(3), true, Some(0.0), AlreadyPlayingAction::Nothing);
                 state.mode = Mode::EndGame;
             };
 
@@ -624,19 +607,8 @@ fn update_game(
             state.sprites[0].tick_forward();
 
             scroll_camera(state);
-
-            // Detect collisions: Generate contacts
-            // contacts.clear();
-            // Collision::gather_contacts(&state.obstacles, &state.sprites, contacts);
-
-            // Handle collisions: Apply restitution impulses.
-            // Collision::restitute(&state.obstacles, &mut state.sprites, contacts);
         }
         Mode::EndGame => {
-            // state
-            //     .audio
-            //     .play(SoundID(1), true, Some(0.0), AlreadyPlayingAction::Nothing);
-
             state.camera_position = Vec2f(0.0, 0.0);
             state.camera_speed = START_SPEED;
             state.level = 0;
@@ -674,8 +646,7 @@ fn update_game(
             state.obstacle_tilemaps = obstacle_tilemaps;
 
             if input.key_held(VirtualKeyCode::Return) {
-                //     state.positions[0] = Vec2i(levels[0].1[0].1 * 16, levels[0].1[0].2 * 16);
-                //     state.velocities[0] = Vec2i(0, 0);
+                state.audio.stop(SoundID(3), None);
                 state.mode = Mode::GamePlay;
             }
         }
@@ -750,6 +721,9 @@ fn tile_collision(state: &mut GameState) {
                     state
                         .audio
                         .play(SoundID(2), false, None, AlreadyPlayingAction::Nothing);
+                    state
+                        .audio
+                        .play(SoundID(3), true, Some(0.0), AlreadyPlayingAction::Nothing);
                     state.mode = Mode::EndGame
                 }
             }
