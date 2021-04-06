@@ -330,6 +330,17 @@ fn main() {
     };
     let sprites = vec![player];
 
+    let start = Background::new(
+        &Rc::new(Texture::with_file(Path::new("content/startdig.png"))),
+        WIDTH,
+        HEIGHT,
+    );
+    let end = Background::new(
+        &Rc::new(Texture::with_file(Path::new("content/enddig.png"))),
+        WIDTH,
+        HEIGHT,
+    );
+
     let font = Rc::new(Font {
         image: Rc::new(Texture::with_file(Path::new("content/ascii.png"))),
     });
@@ -431,7 +442,7 @@ fn draw_scores(state: &mut GameState, screen: &mut Screen) {
     let box_color = Rgba(115, 115, 115, 0);
     let r = Rect {
         x: 120,
-        y: 400, 
+        y: 475, 
         w: 270,
         h: 275
     };
@@ -463,15 +474,7 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
 
     match state.mode {
         Mode::TitleScreen => {
-            // replace w background 
-            let r = Rect {
-                x: 0,
-                y: 0, 
-                w: WIDTH as u16,
-                h: HEIGHT as u16
-            };
-            screen.rect(r, Rgba(0,0,0,0));
-
+            screen.draw_background(&state.backgrounds[0]);
             draw_scores(state, screen);
 
             // start text
@@ -532,14 +535,15 @@ fn draw_game(state: &mut GameState, screen: &mut Screen) {
             // start text
             let mut time = Text::new(
                 state.font.clone(),
-                format!("{}", state.start.elapsed().as_secs()),
-                Vec2f(480.0, 100.0),
+                format!("TIME: {}", state.start.elapsed().as_secs()).as_str(),
+                Vec2f(40.0 + state.camera_position.0, 60.0 + state.camera_position.1),
             );
+
 
             screen.draw_text(&mut time);
         }
         Mode::EndGame => {
-            // screen.draw_background(&state.backgrounds[1]);
+            screen.draw_background(&state.backgrounds[1]);
             let mut game_over = Text::new(
                 state.font.clone(),
                 "GAME OVER",
@@ -609,10 +613,13 @@ fn update_game(
                 state.sprites[0].rect.x = (state.sprites[0].rect.x - 2.0).max(32.0);
             }
             if input.key_pressed(VirtualKeyCode::Right) {
-                state.sprites[0].rect.x = (state.sprites[0].rect.x + 2.0).min(480.0);
+                state.sprites[0].rect.x = (state.sprites[0].rect.x + 2.0).min(397.5);
             }
             if input.key_pressed(VirtualKeyCode::Down) {
                 state.sprites[0].rect.y += 2.0;
+            }
+            if input.key_pressed(VirtualKeyCode::Up) {
+                state.sprites[0].rect.y -= 2.0;
             }
 
             // reached bottom of game
@@ -752,13 +759,12 @@ fn tile_collision(state: &mut GameState) {
                 if t.solid {
                     if *posn == tl || *posn == ml {
                         state.sprites[0].rect.x += 2.0;
+                    } else if *posn == tr || *posn == mr {
+                        state.sprites[0].rect.x -= 2.0;
                     } else if *posn == bl || *posn == bm || *posn == br {
                         state.sprites[0].rect.y -= 2.0;
-                    } else {
-                        state.sprites[0].rect.x -= 2.0;
                     } 
-                }
-                if t.explode {
+                } else if t.explode {
                     let tindex = map.tile_index(*posn);
                     map.explode_tiles(tindex, TileID(4), *posn); 
                 } else if (j == 2 || j == 3 || j == 4) && !t.solid {
